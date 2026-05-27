@@ -1,0 +1,12 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.env
+.streamlit/secrets.toml
+.pytest_cache/
+local_data/
+private_data/
+sample_aaut_submissions.csv

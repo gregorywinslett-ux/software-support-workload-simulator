@@ -1,0 +1,11 @@
+software_id,software_name,support_status,support_level,criticality,adoption_level,vendor_complexity,configuration_complexity,integration_complexity,primary_audience,notes
+SW-001,Learning Hub,Supported,Full,Critical,Very high,High,High,High,All learners,"Synthetic core learning platform."
+SW-002,Assessment Portal,Supported,Full,Critical,High,Medium,Medium,High,Teaching staff,"Synthetic assessment and exams platform."
+SW-003,Marking Workflow,Supported,Standard,High,Medium,Medium,Medium,Medium,Teaching staff,"Synthetic assessment workflow support."
+SW-004,Interactive Content Tool,Supported,Standard,Medium,Medium,Low,Medium,Low,Teaching staff,"Synthetic interactive content support."
+SW-005,Collaboration Space,Supported,Light,Medium,Very high,Low,Low,Medium,Teaching staff,"Synthetic learning-use advisory support."
+SW-006,Pathways Project,Project,Standard,Medium,Low,Medium,Medium,Medium,Professional staff,"Synthetic implementation project."
+SW-007,Placement Tracker,Pilot,Light,Medium,Low,High,High,Medium,Teaching staff,"Synthetic pilot for placement workflow."
+SW-008,Practical Exam Tool,Proposed,Advisory only,Medium,Low,Medium,High,Medium,Teaching staff,"Synthetic proposed assessment workflow support."
+SW-009,Legacy Quiz Tool,Retiring,Light,Low,Low,High,Medium,Low,Teaching staff,"Synthetic candidate for retirement."
+SW-010,Small Tools Bundle,Supported,Standard,High,High,Medium,Medium,Medium,Support units,"Synthetic bundled support for smaller tools."

@@ -1,0 +1,6 @@
+role,fte,usable_hours_per_fte_per_year,available_hours_year,notes
+Advisor,2.0,1320,2640,"Sanitised sample adviser capacity."
+Helpdesk,1.7,1320,2244,"Sanitised sample helpdesk capacity."
+Specialist,0.55,1320,726,"Application specialist capacity for integrations and configuration."
+Project Manager,0.25,1320,330,"Limited project management capacity."
+Manager,0.35,1320,462,"Service leadership, governance, and portfolio decisions."
