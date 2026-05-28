@@ -8,6 +8,7 @@ The app helps team leads ask:
 - Which assigned work items consume that capacity?
 - Which months are near or over capacity?
 - What happens if we add, remove, consolidate, decommission, or change support for software?
+- How do several possible scenarios compare when weighted against shared decision criteria?
 
 ## Who It Is For
 
@@ -194,9 +195,51 @@ The scenario simulator supports:
 
 The scenario impact tab compares the baseline against the revised scenario model.
 
+## Scenario Decision Matrix
+
+The `Scenario Decision Matrix` tab lets users compare multiple software-support options side by side. It is non-AI and transparent: users define the scenarios, choose criteria, set weights, enter scores, and the app calculates the ranking.
+
+Default criteria include:
+
+- workload impact
+- strategic value
+- risk
+- cost
+- complexity
+- student/staff benefit
+- confidence in estimates
+- implementation effort
+- recurring BAU burden
+- opportunity cost
+
+Criteria can be enabled or disabled. Active weights should sum to 100%, and the app shows a warning if they do not. The `Normalise active weights to 100%` button can rebalance active criteria.
+
+Scoring uses a 1 to 5 favourability scale:
+
+- 1 = weak / unfavourable
+- 2 = limited
+- 3 = moderate
+- 4 = strong
+- 5 = very strong / favourable
+
+For lower-is-better criteria, the score is still favourability. For example, risk score 5 means low risk, cost score 5 means low cost, workload impact score 5 means manageable workload impact, and complexity score 5 means low complexity.
+
+The total weighted score is calculated as:
+
+```text
+weighted criterion score = criterion score x (criterion weight / 100)
+total scenario score = sum of weighted criterion scores
+```
+
+The matrix produces a ranked scenario list, a criterion-by-criterion scoring table, a visual comparison chart, a rule-based recommendation summary, decision prompts, and a Markdown export.
+
+The decision matrix can use workload impact values from the existing Scenario Impact tab as summary text. It remains connected to the workload forecast but does not depend on it.
+
 ## Export
 
-The review panel includes a `Download planning summary` button. It exports a Markdown summary with:
+The review panel includes a `Download planning summary` button. The decision matrix includes a `Download decision matrix summary` button.
+
+Exports can include:
 
 - Appropriate-use note
 - Team profile
@@ -204,6 +247,65 @@ The review panel includes a `Download planning summary` button. It exports a Mar
 - Monthly review
 - Active scenario summary, when available
 - Calculation assumptions
+- Decision question
+- Scenarios compared
+- Active criteria and weights
+- Scenario scores and ranking
+- Caveats and decision prompts
+- Optional AI comparison interpretation, if generated
+
+## Optional AI-Assisted Interpretation
+
+The app includes an optional `AI-Assisted Interpretation` tab. It is disabled unless an OpenAI API key is configured in Streamlit secrets.
+
+The AI feature is designed as a cautious leadership reflection aid. It can suggest observations, risks, questions, and possible mitigations, but it must not make decisions or evaluate staff performance.
+
+The minimized summary sent to OpenAI excludes:
+
+- individual staff names
+- raw uploaded files
+- free-text private notes
+- raw work item titles
+- software names
+- sensitive personal information
+
+The AI output should be treated as draft reflection material only. Human judgement is required for all decisions.
+
+The Scenario Decision Matrix also has an optional AI reflection section. The AI does not calculate scores or make the decision. It can only interpret a summarised comparison object containing:
+
+- decision question
+- scenario names and short descriptions
+- active criteria and weights
+- total weighted scores
+- ranked order
+- major trade-offs
+- flagged caveats
+
+The AI comparison summary excludes API keys, raw uploaded files, staff names, person-level capacity data, sensitive notes, confidential operational detail, and raw scenario notes.
+
+### Enable Locally
+
+Create a local file called `.streamlit/secrets.toml`:
+
+```toml
+OPENAI_API_KEY = "your-key-here"
+# Optional:
+OPENAI_MODEL = "gpt-5"
+```
+
+Do not commit `.streamlit/secrets.toml` to GitHub.
+
+### Enable In Streamlit Community Cloud
+
+Open the deployed app settings, go to `Secrets`, and add:
+
+```toml
+OPENAI_API_KEY = "your-key-here"
+# Optional:
+OPENAI_MODEL = "gpt-5"
+```
+
+If no API key is configured, the app still works normally and shows a clear disabled-state message in the AI tab.
 
 ## Manual Testing
 
@@ -216,8 +318,11 @@ The checklist covers:
 - CSV upload with valid data
 - CSV upload with missing columns
 - Scenario adjustment
+- Scenario Decision Matrix scoring and export
 - Export function
 - Demo data reset
+- AI disabled state
+- AI enabled state, if an API key is configured
 
 ## Deployment Notes
 
@@ -237,9 +342,14 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for a step-by-step deployment checklist.
 
 ## Known Limitations
 
-- No login, database, persistence, external APIs, or multi-user collaboration.
+- No login, database, persistence, or multi-user collaboration.
+- The optional AI tab calls OpenAI only when an API key is configured and the user clicks the generation button.
 - Uploaded data is held only in the current browser/session.
 - The model uses simplified assumptions and should support planning conversations, not precise forecasting.
 - Work item hours are spread evenly across active months.
 - Role allocation for guided work items uses simple work-type defaults.
-- AI interpretation is intentionally not included yet.
+- AI interpretation is optional, cautionary, and not authoritative.
+- Scenario Decision Matrix scoring depends on human judgement.
+- Decision weights reflect values and priorities, not objective truth.
+- AI interpretation of matrix results is reflective, not authoritative.
+- The tool supports structured deliberation, not automated decision-making.

@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.7 - Scenario Decision Matrix
+
+- Added non-AI `Scenario Decision Matrix` tab for comparing multiple software-support scenarios.
+- Added editable scenarios, editable criteria, criteria enable/disable controls, and weighted scoring.
+- Added favourability scoring guidance for lower-is-better criteria such as risk, cost, complexity, workload impact, implementation effort, recurring BAU burden, and opportunity cost.
+- Added ranked results, criterion-by-criterion scoring, visual comparison chart, rule-based recommendation summary, decision prompts, and Markdown export.
+- Added optional AI reflection on summarised decision matrix results while preserving existing AI secrets handling and workload interpretation.
+- Updated README and deployment notes with decision matrix workflow, privacy limits, AI summary boundaries, and limitations.
+
+## v0.6 - Optional AI-Assisted Interpretation
+
+- Added optional `AI-Assisted Interpretation` tab.
+- Added minimized AI summary object that excludes staff names, raw files, free-text notes, raw work item titles, and software names.
+- Added disabled state when no OpenAI API key is configured.
+- Added guarded OpenAI Responses API call when an API key is present.
+- Added Markdown export for AI interpretation output.
+- Updated README, deployment notes, and manual test checklist.
+
 ## v0.5 - Streamlit Deployment Preparation
 
 - Confirmed `app.py` as the Streamlit Community Cloud entry point.

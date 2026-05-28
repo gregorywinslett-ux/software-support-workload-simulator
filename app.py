@@ -1,4 +1,5 @@
 import io
+import json
 
 import pandas as pd
 import plotly.express as px
@@ -229,6 +230,138 @@ CANONICAL_MODEL_TABLES = [
     "software_portfolio",
     "baseline_workload",
     "scenario_adjustments",
+]
+AI_INTERPRETATION_INSTRUCTIONS = """
+You are an AI interpretation assistant for a team-level software support workload planning tool.
+
+Your role is to help leaders reflect on workload, capacity, uncertainty, and scenario impacts. You do not make decisions. You do not evaluate individual staff performance. You do not present estimates as objective truth.
+
+Use cautious, plain-English language. Treat all data as approximate and assumption-based. Focus on patterns, risks, questions, and possible mitigations for leadership discussion.
+
+Do not infer personal details, staff capability, motivation, productivity, or performance. Do not recommend disciplinary action or individual performance management. Do not identify any person as a problem.
+
+If the data is incomplete, uncertain, or contradictory, say so clearly. Prefer phrases such as "may suggest", "could indicate", "worth checking", and "a useful leadership question is".
+
+Your output should include:
+1. Brief summary
+2. Key workload observations
+3. Capacity and risk signals
+4. Uncertainty and data quality cautions
+5. Leadership questions
+6. Possible mitigations to consider
+7. Clear reminder that humans make the decisions
+
+Keep the tone calm, practical, and non-alarmist.
+""".strip()
+
+AI_DECISION_MATRIX_INSTRUCTIONS = """
+You are an AI interpretation assistant for a non-AI scenario decision matrix.
+
+The matrix scores are calculated by the application using human-entered favourability scores and human-entered weights. Do not recalculate the scores. Do not decide which scenario should be chosen. Do not present the ranking as objectively correct.
+
+Use only the summarised comparison object provided. Do not infer facts that are not present. Do not evaluate staff performance, individual capability, motivation, productivity, or conduct. Do not ask for or refer to API keys, secrets, raw uploaded files, staff names, or sensitive notes.
+
+Your output must include:
+1. Three cautious observations
+2. Three risks or watch-points
+3. Three leadership questions
+4. Two possible mitigation or next-step options
+5. One short senior-summary paragraph
+6. One "what not to conclude from this comparison" note
+
+Use cautious language such as "may suggest", "could indicate", "worth testing", and "based on the entered assumptions". Keep the tone calm, practical, and non-authoritative.
+""".strip()
+
+DECISION_SCENARIO_TYPES = [
+    "Keep current portfolio",
+    "Remove platform",
+    "Introduce new tool at light support",
+    "Introduce new tool at full support",
+    "Consolidate tools",
+    "Delay implementation",
+    "Reduce support level",
+    "Other",
+]
+DECISION_CRITERIA_DEFAULTS = [
+    {
+        "criterion": "Workload impact",
+        "enabled": True,
+        "weight_pct": 30.0,
+        "favourability_guidance": "5 = manageable workload impact / highly favourable",
+    },
+    {
+        "criterion": "Strategic value",
+        "enabled": True,
+        "weight_pct": 25.0,
+        "favourability_guidance": "5 = strong strategic value / highly favourable",
+    },
+    {
+        "criterion": "Risk",
+        "enabled": True,
+        "weight_pct": 20.0,
+        "favourability_guidance": "5 = low risk / highly favourable",
+    },
+    {
+        "criterion": "Cost",
+        "enabled": True,
+        "weight_pct": 10.0,
+        "favourability_guidance": "5 = low cost / highly favourable",
+    },
+    {
+        "criterion": "Complexity",
+        "enabled": False,
+        "weight_pct": 0.0,
+        "favourability_guidance": "5 = low complexity / highly favourable",
+    },
+    {
+        "criterion": "Student/staff benefit",
+        "enabled": True,
+        "weight_pct": 15.0,
+        "favourability_guidance": "5 = strong student/staff benefit / highly favourable",
+    },
+    {
+        "criterion": "Confidence in estimates",
+        "enabled": False,
+        "weight_pct": 0.0,
+        "favourability_guidance": "5 = high confidence / highly favourable",
+    },
+    {
+        "criterion": "Implementation effort",
+        "enabled": False,
+        "weight_pct": 0.0,
+        "favourability_guidance": "5 = low implementation effort / highly favourable",
+    },
+    {
+        "criterion": "Recurring BAU burden",
+        "enabled": False,
+        "weight_pct": 0.0,
+        "favourability_guidance": "5 = low recurring BAU burden / highly favourable",
+    },
+    {
+        "criterion": "Opportunity cost",
+        "enabled": False,
+        "weight_pct": 0.0,
+        "favourability_guidance": "5 = low opportunity cost / highly favourable",
+    },
+]
+DECISION_SCENARIO_COLUMNS = [
+    "scenario_name",
+    "short_description",
+    "scenario_type",
+    "expected_workload_impact",
+    "implementation_effort",
+    "recurring_bau_burden",
+    "risk_level",
+    "confidence_level",
+    "notes",
+]
+DECISION_PROMPTS = [
+    "What result surprised the group?",
+    "Which criterion is driving the ranking most strongly?",
+    "Would the result change if workload impact or strategic value were weighted differently?",
+    "Are any criteria prerequisites rather than preferences?",
+    "Is the preferred scenario feasible within the current planning period?",
+    "What would need to be true for the preferred scenario to be safe to proceed?",
 ]
 
 
@@ -1024,6 +1157,687 @@ def build_planning_summary_markdown(canonical_model):
         ]
     )
     return "\n".join(lines).encode("utf-8")
+
+
+def get_openai_secret(name, default=None):
+    try:
+        return st.secrets.get(name, default)
+    except Exception:
+        return default
+
+
+def get_openai_api_key():
+    return get_openai_secret("OPENAI_API_KEY", "")
+
+
+def get_openai_model():
+    return get_openai_secret("OPENAI_MODEL", "gpt-5")
+
+
+def build_workload_summary_for_ai(work_items_df):
+    if work_items_df.empty:
+        return []
+
+    rows = []
+    for work_type, group_df in work_items_df.groupby("work_type"):
+        priority_counts = group_df["priority"].value_counts().to_dict()
+        rows.append(
+            {
+                "work_type": work_type,
+                "assigned_hours": float(round(group_df["estimated_hours"].sum(), 1)),
+                "priority_mix": {
+                    "critical": int(priority_counts.get("Critical", 0)),
+                    "high": int(priority_counts.get("High", 0)),
+                    "medium": int(priority_counts.get("Medium", 0)),
+                    "low": int(priority_counts.get("Low", 0)),
+                },
+                "low_confidence_count": int((group_df["confidence"] == "Low").sum()),
+            }
+        )
+    return sorted(rows, key=lambda row: row["assigned_hours"], reverse=True)
+
+
+def build_ai_summary_object(canonical_model, baseline_df, capacity_df):
+    monthly_df = canonical_model.get("monthly_workload", pd.DataFrame())
+    baseline_df = canonical_model.get("baseline_workload", baseline_df)
+    capacity_df = canonical_model.get("team_capacity", capacity_df)
+    work_items_df = canonical_model.get("assigned_work_items", pd.DataFrame())
+    role_pressure_df = calculate_role_pressure(baseline_df, capacity_df)
+    review_summary = canonical_model.get("review_summary", {})
+    high_priority_df = review_summary.get("high_priority_work_items", pd.DataFrame())
+    low_confidence_df = review_summary.get("low_confidence_work_items", pd.DataFrame())
+
+    total_available = float(capacity_df["available_hours_year"].sum())
+    total_assigned = float(baseline_df["calculated_total_hours"].sum())
+    utilisation = total_assigned / total_available * 100 if total_available else 0
+
+    summary = {
+        "app_context": {
+            "tool_name": "Software Support Workload Simulator",
+            "purpose": "Team-level workload planning and scenario reflection",
+            "important_limits": [
+                "Planning aid only",
+                "Not a performance management system",
+                "Outputs are estimates based on user assumptions",
+            ],
+        },
+        "team_profile": {
+            "team_label": "Withheld - use generic role/team labels only",
+            "planning_period_start": canonical_model.get("team_profile", {}).get(
+                "planning_start_month", ""
+            ),
+            "planning_period_end": canonical_model.get("team_profile", {}).get(
+                "planning_end_month", ""
+            ),
+            "planning_unit": canonical_model.get("team_profile", {}).get(
+                "planning_unit", "Monthly"
+            ),
+            "standard_hours_assumption": canonical_model.get("team_profile", {}).get(
+                "standard_hours", DEFAULT_TEAM_PROFILE["standard_hours"]
+            ),
+        },
+        "baseline_summary": {
+            "total_available_hours": round(total_available, 1),
+            "total_assigned_hours": round(total_assigned, 1),
+            "remaining_capacity_hours": round(total_available - total_assigned, 1),
+            "utilisation_percent": round(utilisation, 1),
+            "over_capacity_months": review_summary.get("over_capacity_months", []),
+            "low_confidence_item_count": int(len(low_confidence_df)),
+            "high_priority_item_count": int(len(high_priority_df)),
+        },
+        "monthly_summary": [
+            {
+                "month": row.month,
+                "available_capacity_hours": round(row.monthly_available_capacity, 1),
+                "assigned_workload_hours": round(row.monthly_assigned_workload, 1),
+                "remaining_capacity_hours": round(row.remaining_capacity, 1),
+                "over_capacity": bool(row.over_capacity),
+            }
+            for row in monthly_df.itertuples(index=False)
+        ],
+        "role_summary": [
+            {
+                "role": row.role,
+                "available_hours": round(row.available_hours, 1),
+                "assigned_hours": round(row.committed_hours, 1),
+                "remaining_hours": round(row.remaining_capacity, 1),
+                "utilisation_percent": round(row.utilisation_pct, 1),
+                "status": row.overload_status,
+            }
+            for row in role_pressure_df.itertuples(index=False)
+        ],
+        "workload_summary": build_workload_summary_for_ai(work_items_df),
+        "scenario_summary": None,
+        "scenario_role_deltas": [],
+        "scenario_work_type_deltas": [],
+        "known_uncertainties": [
+            "Some estimates may be low confidence",
+            "Workload is spread evenly across active months",
+            "Role allocation uses simplified assumptions",
+            "The summary excludes staff names, free-text notes, raw uploaded files, and raw work rows",
+        ],
+        "excluded_data_notice": {
+            "individual_names_sent": False,
+            "sensitive_notes_sent": False,
+            "raw_uploaded_files_sent": False,
+            "free_text_notes_sent": False,
+            "raw_work_item_titles_sent": False,
+            "software_names_sent": False,
+        },
+    }
+
+    scenario_summary_df = st.session_state.get("scenario_summary_df", pd.DataFrame())
+    role_delta_df = st.session_state.get("role_delta_df", pd.DataFrame())
+    work_type_delta_df = st.session_state.get("work_type_delta_df", pd.DataFrame())
+    scenario_name = st.session_state.get("scenario_name", "No scenario built")
+
+    if not scenario_summary_df.empty:
+        scenario = scenario_summary_df.iloc[0]
+        summary["scenario_summary"] = {
+            "scenario_name": scenario_name,
+            "baseline_total_hours": round(scenario["baseline_total_hours"], 1),
+            "scenario_total_hours": round(scenario["scenario_total_hours"], 1),
+            "hours_delta": round(scenario["hours_delta"], 1),
+            "percentage_delta": round(scenario["percentage_delta"], 1),
+            "roles_over_capacity": int(scenario["roles_over_capacity"]),
+            "low_confidence_assumptions": int(scenario["low_confidence_assumptions"]),
+            "uncertainty_flag": bool(scenario["uncertainty_flag"]),
+        }
+
+    if not role_delta_df.empty:
+        summary["scenario_role_deltas"] = [
+            {
+                "role": row.role,
+                "baseline_assigned_hours": round(row.committed_hours_baseline, 1),
+                "scenario_assigned_hours": round(row.committed_hours_scenario, 1),
+                "hours_delta": round(row.role_hours_delta, 1),
+                "revised_utilisation_percent": round(row.revised_utilisation_pct, 1),
+                "revised_status": row.revised_overload_status,
+            }
+            for row in role_delta_df.itertuples(index=False)
+        ]
+
+    if not work_type_delta_df.empty:
+        changed_df = work_type_delta_df[
+            work_type_delta_df["work_type_hours_delta"].abs() > 0
+        ].copy()
+        summary["scenario_work_type_deltas"] = [
+            {
+                "work_type": row.work_type,
+                "hours_delta": round(row.work_type_hours_delta, 1),
+            }
+            for row in changed_df.head(12).itertuples(index=False)
+        ]
+
+    return summary
+
+
+def validate_ai_summary(ai_summary):
+    if not ai_summary:
+        return False, "There is no workload summary available yet."
+    if not ai_summary.get("monthly_summary"):
+        return False, "Complete the baseline review before using AI interpretation."
+    if not ai_summary.get("role_summary"):
+        return False, "Role capacity data is missing, so the AI summary is incomplete."
+    if ai_summary["baseline_summary"]["total_available_hours"] <= 0:
+        return False, "Available capacity is zero, so there is not enough information to interpret."
+    return True, ""
+
+
+def build_ai_user_prompt(ai_summary):
+    summary_json = json.dumps(ai_summary, indent=2)
+    return (
+        "Interpret the following workload planning summary.\n\n"
+        "Use only the provided summary. Do not assume facts that are not present. "
+        "Do not evaluate individual staff. Do not make final decisions.\n\n"
+        "Return cautious leadership observations, risks, questions, and possible mitigations.\n\n"
+        f"Workload summary:\n{summary_json}"
+    )
+
+
+def generate_ai_interpretation(ai_summary, api_key, model):
+    from openai import OpenAI
+
+    client = OpenAI(api_key=api_key)
+    response = client.responses.create(
+        model=model,
+        reasoning={"effort": "low"},
+        max_output_tokens=1400,
+        input=[
+            {
+                "role": "developer",
+                "content": AI_INTERPRETATION_INSTRUCTIONS,
+            },
+            {
+                "role": "user",
+                "content": build_ai_user_prompt(ai_summary),
+            },
+        ],
+    )
+    return response.output_text
+
+
+def build_ai_interpretation_markdown(ai_text, ai_summary):
+    scenario_name = "No scenario built"
+    if ai_summary.get("scenario_summary"):
+        scenario_name = ai_summary["scenario_summary"]["scenario_name"]
+    lines = [
+        "# AI-Assisted Workload Interpretation",
+        "",
+        "> Planning aid only. This output is not a decision, forecast, or performance assessment.",
+        "",
+        f"- Scenario: {scenario_name}",
+        f"- Data sent excludes individual names, free-text notes, raw uploaded files, raw work item titles, and software names.",
+        "",
+        ai_text,
+    ]
+    return "\n".join(lines).encode("utf-8")
+
+
+def get_default_decision_scenarios():
+    return pd.DataFrame(
+        [
+            {
+                "scenario_name": "Keep current portfolio",
+                "short_description": "Continue with the current supported software mix.",
+                "scenario_type": "Keep current portfolio",
+                "expected_workload_impact": "Baseline workload remains largely unchanged.",
+                "implementation_effort": "Low",
+                "recurring_bau_burden": "Moderate",
+                "risk_level": "Low",
+                "confidence_level": "Medium",
+                "notes": "Use as the comparison baseline.",
+            },
+            {
+                "scenario_name": "Introduce new tool - light support",
+                "short_description": "Add a new tool with advisory or light support.",
+                "scenario_type": "Introduce new tool at light support",
+                "expected_workload_impact": "Adds implementation and some recurring support work.",
+                "implementation_effort": "Medium",
+                "recurring_bau_burden": "Low",
+                "risk_level": "Medium",
+                "confidence_level": "Low",
+                "notes": "Adjust using the Scenario Impact tab if an estimate is available.",
+            },
+            {
+                "scenario_name": "Reduce support level",
+                "short_description": "Reduce support intensity for a lower-value or mature platform.",
+                "scenario_type": "Reduce support level",
+                "expected_workload_impact": "May reduce recurring workload but could shift demand elsewhere.",
+                "implementation_effort": "Low",
+                "recurring_bau_burden": "Low",
+                "risk_level": "Medium",
+                "confidence_level": "Medium",
+                "notes": "Check stakeholder impact before treating savings as certain.",
+            },
+        ],
+        columns=DECISION_SCENARIO_COLUMNS,
+    )
+
+
+def get_default_decision_criteria():
+    return pd.DataFrame(DECISION_CRITERIA_DEFAULTS)
+
+
+def get_active_decision_criteria(criteria_df):
+    if criteria_df.empty:
+        return pd.DataFrame(columns=["criterion", "enabled", "weight_pct"])
+    active_df = criteria_df[criteria_df["enabled"] == True].copy()
+    active_df["weight_pct"] = active_df["weight_pct"].apply(to_float)
+    return active_df
+
+
+def get_default_decision_scores(scenarios_df, criteria_df):
+    active_criteria = get_active_decision_criteria(criteria_df)["criterion"].tolist()
+    rows = []
+    for scenario_name in scenarios_df["scenario_name"].fillna("").tolist():
+        row = {"scenario_name": scenario_name}
+        for criterion in active_criteria:
+            row[criterion] = 3
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def align_decision_scores(scores_df, scenarios_df, criteria_df):
+    active_criteria = get_active_decision_criteria(criteria_df)["criterion"].tolist()
+    desired_columns = ["scenario_name"] + active_criteria
+    existing_scores = {}
+    if not scores_df.empty and "scenario_name" in scores_df.columns:
+        for row in scores_df.fillna("").to_dict("records"):
+            existing_scores[str(row.get("scenario_name", ""))] = row
+
+    rows = []
+    for scenario_name in scenarios_df["scenario_name"].fillna("").tolist():
+        clean_name = str(scenario_name).strip()
+        if not clean_name:
+            continue
+        existing = existing_scores.get(clean_name, {})
+        row = {"scenario_name": clean_name}
+        for criterion in active_criteria:
+            row[criterion] = int(to_float(existing.get(criterion, 3), 3))
+        rows.append(row)
+    return pd.DataFrame(rows, columns=desired_columns)
+
+
+def normalise_decision_weights(criteria_df):
+    normalised_df = criteria_df.copy()
+    active_mask = normalised_df["enabled"] == True
+    active_total = normalised_df.loc[active_mask, "weight_pct"].apply(to_float).sum()
+    if active_total <= 0:
+        active_count = int(active_mask.sum())
+        if active_count:
+            normalised_df.loc[active_mask, "weight_pct"] = round(100 / active_count, 1)
+    else:
+        normalised_df.loc[active_mask, "weight_pct"] = (
+            normalised_df.loc[active_mask, "weight_pct"].apply(to_float)
+            / active_total
+            * 100
+        ).round(1)
+    normalised_df.loc[~active_mask, "weight_pct"] = 0.0
+    return normalised_df
+
+
+def validate_decision_matrix_inputs(decision_question, scenarios_df, criteria_df, scores_df):
+    errors = []
+    warnings = []
+    if not str(decision_question).strip():
+        errors.append("Add a decision question before relying on the comparison.")
+    if scenarios_df.empty or len(scenarios_df) < 2:
+        errors.append("Add at least two scenarios to compare.")
+    else:
+        blank_names = scenarios_df["scenario_name"].fillna("").astype(str).str.strip() == ""
+        if blank_names.any():
+            errors.append("Each scenario needs a scenario name.")
+    active_criteria = get_active_decision_criteria(criteria_df)
+    if active_criteria.empty:
+        errors.append("Enable at least one decision criterion.")
+    weight_total = active_criteria["weight_pct"].sum() if not active_criteria.empty else 0
+    if active_criteria.empty or abs(weight_total - 100) > 0.05:
+        warnings.append(
+            f"Active criteria weights currently total {weight_total:.1f}%. Aim for 100%."
+        )
+    if not scores_df.empty:
+        for criterion in active_criteria["criterion"].tolist():
+            invalid_scores = ~scores_df[criterion].apply(lambda value: 1 <= to_float(value) <= 5)
+            if invalid_scores.any():
+                errors.append(f"Scores for {criterion} must be between 1 and 5.")
+    return errors, warnings
+
+
+def calculate_decision_matrix_scores(scenarios_df, criteria_df, scores_df):
+    active_criteria = get_active_decision_criteria(criteria_df)
+    score_rows = []
+    contribution_rows = []
+    scenario_lookup = {
+        str(row.scenario_name).strip(): row
+        for row in scenarios_df.fillna("").itertuples(index=False)
+    }
+
+    for _, row in scores_df.fillna("").iterrows():
+        scenario_name = str(row["scenario_name"]).strip()
+        if not scenario_name:
+            continue
+        total_score = 0.0
+        for criterion in active_criteria.itertuples(index=False):
+            score = to_float(row.get(criterion.criterion, 3), 3)
+            weight_fraction = to_float(criterion.weight_pct) / 100
+            weighted_score = score * weight_fraction
+            total_score += weighted_score
+            contribution_rows.append(
+                {
+                    "scenario_name": scenario_name,
+                    "criterion": criterion.criterion,
+                    "score": score,
+                    "weight_pct": to_float(criterion.weight_pct),
+                    "weighted_score": weighted_score,
+                }
+            )
+        scenario = scenario_lookup.get(scenario_name)
+        score_rows.append(
+            {
+                "rank": 0,
+                "scenario_name": scenario_name,
+                "scenario_type": getattr(scenario, "scenario_type", ""),
+                "total_weighted_score": total_score,
+            }
+        )
+
+    results_df = pd.DataFrame(score_rows)
+    if not results_df.empty:
+        results_df = results_df.sort_values(
+            "total_weighted_score", ascending=False
+        ).reset_index(drop=True)
+        results_df["rank"] = results_df.index + 1
+    contribution_df = pd.DataFrame(contribution_rows)
+    return results_df, contribution_df
+
+
+def get_decision_tradeoffs(results_df, contribution_df):
+    if results_df.empty or contribution_df.empty:
+        return []
+    tradeoffs = []
+    top_name = results_df.iloc[0]["scenario_name"]
+    top_contrib = contribution_df[
+        contribution_df["scenario_name"] == top_name
+    ].sort_values("weighted_score", ascending=False)
+    if not top_contrib.empty:
+        strengths = ", ".join(top_contrib.head(3)["criterion"].tolist())
+        tradeoffs.append(f"{top_name} is mainly lifted by: {strengths}.")
+
+    low_scores = contribution_df[contribution_df["score"] <= 2].copy()
+    if not low_scores.empty:
+        for scenario_name, group_df in low_scores.groupby("scenario_name"):
+            criteria = ", ".join(group_df["criterion"].head(3).tolist())
+            tradeoffs.append(f"{scenario_name} has weaker favourability on: {criteria}.")
+    return tradeoffs[:6]
+
+
+def get_score_for(contribution_df, scenario_name, criterion):
+    matching = contribution_df[
+        (contribution_df["scenario_name"] == scenario_name)
+        & (contribution_df["criterion"] == criterion)
+    ]
+    if matching.empty:
+        return None
+    return float(matching.iloc[0]["score"])
+
+
+def build_decision_recommendation_summary(results_df, contribution_df):
+    if results_df.empty:
+        return "Add scenarios and scores to generate a recommendation summary."
+
+    top = results_df.iloc[0]
+    second = results_df.iloc[1] if len(results_df) > 1 else None
+    top_contrib = contribution_df[
+        contribution_df["scenario_name"] == top["scenario_name"]
+    ].sort_values("weighted_score", ascending=False)
+    strongest = ", ".join(top_contrib.head(3)["criterion"].tolist()) or "the active criteria"
+
+    lines = [
+        f"Highest-ranked scenario: **{top['scenario_name']}** with a weighted score of {top['total_weighted_score']:.2f} out of 5.",
+        f"It ranks highest because its strongest weighted criteria are: {strongest}.",
+    ]
+    if second is not None:
+        lines.append(
+            f"Second-ranked scenario: **{second['scenario_name']}** with a weighted score of {second['total_weighted_score']:.2f} out of 5."
+        )
+
+    tradeoffs = get_decision_tradeoffs(results_df, contribution_df)
+    if tradeoffs:
+        lines.append("Key trade-offs: " + " ".join(tradeoffs))
+
+    strategic_workload_flags = []
+    low_workload_low_value_flags = []
+    for scenario_name in results_df["scenario_name"].tolist():
+        strategic = get_score_for(contribution_df, scenario_name, "Strategic value")
+        workload = get_score_for(contribution_df, scenario_name, "Workload impact")
+        if strategic is not None and workload is not None:
+            if strategic >= 4 and workload <= 2:
+                strategic_workload_flags.append(scenario_name)
+            if workload >= 4 and strategic <= 2:
+                low_workload_low_value_flags.append(scenario_name)
+
+    if strategic_workload_flags:
+        lines.append(
+            "High strategic value but weaker workload feasibility: "
+            + ", ".join(strategic_workload_flags)
+            + "."
+        )
+    if low_workload_low_value_flags:
+        lines.append(
+            "Low workload impact but weaker strategic value: "
+            + ", ".join(low_workload_low_value_flags)
+            + "."
+        )
+
+    lines.append(
+        "Caution: this score is a facilitation aid. It is not an automatic decision or objective truth."
+    )
+    return "\n\n".join(lines)
+
+
+def build_decision_comparison_summary_object(
+    decision_question,
+    scenarios_df,
+    criteria_df,
+    results_df,
+    contribution_df,
+):
+    active_criteria = get_active_decision_criteria(criteria_df)
+    tradeoffs = get_decision_tradeoffs(results_df, contribution_df)
+    ranked_order = (
+        results_df[["rank", "scenario_name", "total_weighted_score"]].to_dict("records")
+        if not results_df.empty
+        else []
+    )
+    scenario_rows = []
+    for row in scenarios_df.fillna("").itertuples(index=False):
+        scenario_rows.append(
+            {
+                "scenario_name": str(row.scenario_name).strip(),
+                "short_description": str(row.short_description).strip(),
+                "scenario_type": str(row.scenario_type).strip(),
+            }
+        )
+    return {
+        "decision_question": str(decision_question).strip(),
+        "scenarios": scenario_rows,
+        "active_criteria": [
+            {
+                "criterion": row.criterion,
+                "weight_pct": round(to_float(row.weight_pct), 1),
+                "favourability_guidance": row.favourability_guidance,
+            }
+            for row in active_criteria.itertuples(index=False)
+        ],
+        "ranked_order": ranked_order,
+        "scenario_scores": ranked_order,
+        "major_tradeoffs": tradeoffs,
+        "flagged_caveats": [
+            "Scores are based on human judgement",
+            "Weights reflect values and priorities, not objective truth",
+            "All criteria are scored for favourability, so high risk/cost/complexity means a lower score",
+            "The AI must not make the decision or treat the ranking as objectively correct",
+        ],
+        "excluded_data_notice": {
+            "api_keys_sent": False,
+            "raw_uploaded_files_sent": False,
+            "staff_names_sent": False,
+            "person_level_capacity_sent": False,
+            "sensitive_notes_sent": False,
+            "confidential_operational_detail_sent": False,
+            "raw_scenario_notes_sent": False,
+        },
+    }
+
+
+def validate_decision_ai_summary(summary):
+    if not summary:
+        return False, "There is no decision comparison summary available yet."
+    if len(summary.get("scenarios", [])) < 2:
+        return False, "Add at least two scenarios before using AI interpretation."
+    if not summary.get("active_criteria"):
+        return False, "Enable and weight at least one criterion first."
+    if not summary.get("ranked_order"):
+        return False, "Score the scenarios before using AI interpretation."
+    return True, ""
+
+
+def build_decision_ai_user_prompt(summary):
+    summary_json = json.dumps(summary, indent=2)
+    return (
+        "Interpret this non-AI scenario decision matrix summary for leadership reflection.\n\n"
+        "Use only the provided summary. Do not recalculate scores. Do not make the decision. "
+        "Do not describe the ranking as objectively correct.\n\n"
+        f"Decision matrix summary:\n{summary_json}"
+    )
+
+
+def generate_ai_decision_interpretation(summary, api_key, model):
+    from openai import OpenAI
+
+    client = OpenAI(api_key=api_key)
+    response = client.responses.create(
+        model=model,
+        reasoning={"effort": "low"},
+        max_output_tokens=1200,
+        input=[
+            {
+                "role": "developer",
+                "content": AI_DECISION_MATRIX_INSTRUCTIONS,
+            },
+            {
+                "role": "user",
+                "content": build_decision_ai_user_prompt(summary),
+            },
+        ],
+    )
+    return response.output_text
+
+
+def build_decision_matrix_markdown(
+    decision_question,
+    scenarios_df,
+    criteria_df,
+    scores_df,
+    results_df,
+    recommendation_text,
+    ai_text="",
+):
+    active_criteria = get_active_decision_criteria(criteria_df)
+    lines = [
+        "# Scenario Decision Matrix Summary",
+        "",
+        "> Planning and facilitation aid only. This is not an automatic decision.",
+        "",
+        "## Decision Question",
+        "",
+        str(decision_question).strip() or "Not entered",
+        "",
+        "## Scenarios Compared",
+        "",
+    ]
+    for row in scenarios_df.fillna("").itertuples(index=False):
+        lines.append(
+            f"- **{row.scenario_name}** ({row.scenario_type}): {row.short_description}"
+        )
+
+    lines.extend(["", "## Active Criteria and Weights", "", "| Criterion | Weight | Guidance |", "| --- | ---: | --- |"])
+    for row in active_criteria.itertuples(index=False):
+        lines.append(
+            f"| {row.criterion} | {to_float(row.weight_pct):.1f}% | {row.favourability_guidance} |"
+        )
+
+    lines.extend(["", "## Scenario Scores", ""])
+    if not scores_df.empty:
+        lines.append(dataframe_to_markdown_table(scores_df))
+
+    lines.extend(["", "## Ranked Recommendation", ""])
+    if not results_df.empty:
+        lines.append(dataframe_to_markdown_table(results_df))
+    lines.extend(["", recommendation_text, "", "## Caveats", ""])
+    lines.extend(
+        [
+            "- Scores depend on human judgement.",
+            "- Weights reflect values and priorities, not objective truth.",
+            "- All scoring is favourability scoring: 5 is favourable even when the underlying criterion is normally lower-is-better.",
+            "- AI interpretation, if included, is reflective and not authoritative.",
+        ]
+    )
+    lines.extend(["", "## Decision Prompts", ""])
+    lines.extend([f"- {prompt}" for prompt in DECISION_PROMPTS])
+
+    if ai_text:
+        lines.extend(
+            [
+                "",
+                "## Optional AI Interpretation",
+                "",
+                "> AI output is included as reflection material only. It does not make the decision.",
+                "",
+                ai_text,
+            ]
+        )
+    return "\n".join(lines).encode("utf-8")
+
+
+def dataframe_to_markdown_table(df):
+    if df.empty:
+        return ""
+    columns = df.columns.tolist()
+    lines = [
+        "| " + " | ".join(str(column) for column in columns) + " |",
+        "| " + " | ".join("---" for _ in columns) + " |",
+    ]
+    for row in df.fillna("").itertuples(index=False):
+        values = []
+        for value in row:
+            if isinstance(value, float):
+                values.append(f"{value:.2f}")
+            else:
+                values.append(str(value))
+        lines.append("| " + " | ".join(values) + " |")
+    return "\n".join(lines)
 
 
 def build_canonical_data_model(
@@ -1995,6 +2809,30 @@ def make_delta_chart(df, x_column, y_column, title):
     return fig
 
 
+def make_decision_score_chart(results_df):
+    if results_df.empty:
+        return go.Figure()
+    chart_df = results_df.sort_values("total_weighted_score", ascending=True)
+    fig = px.bar(
+        chart_df,
+        x="total_weighted_score",
+        y="scenario_name",
+        orientation="h",
+        text="total_weighted_score",
+        color="total_weighted_score",
+        color_continuous_scale="Teal",
+    )
+    fig.update_traces(texttemplate="%{text:.2f}", textposition="outside")
+    fig.update_layout(
+        height=max(320, 70 * len(chart_df)),
+        xaxis_title="Total weighted score out of 5",
+        yaxis_title="",
+        coloraxis_showscale=False,
+    )
+    fig.update_xaxes(range=[0, 5])
+    return fig
+
+
 def show_summary_cards(summary_df):
     summary = summary_df.iloc[0]
     cols = st.columns(6)
@@ -2821,6 +3659,410 @@ def show_leadership_interpretation_tab(baseline_df, capacity_df):
         st.dataframe(changed.head(10), width="stretch", hide_index=True)
 
 
+def show_ai_interpretation_tab(baseline_df, capacity_df):
+    canonical_model = st.session_state.get("canonical_model")
+    if not canonical_model:
+        st.info("Complete the baseline builder or load CSV data before using AI interpretation.")
+        return
+
+    st.subheader("Optional AI-assisted interpretation")
+    st.warning(
+        "This optional feature sends a minimized workload summary to OpenAI. "
+        "It does not send staff names, raw uploaded files, free-text notes, raw work item titles, "
+        "or software names. Do not use the output for individual performance management."
+    )
+    st.caption(
+        "The AI output is draft reflection material only. It may be incomplete or wrong. "
+        "Human judgement is required for all decisions."
+    )
+
+    ai_summary = build_ai_summary_object(canonical_model, baseline_df, capacity_df)
+    summary_valid, summary_message = validate_ai_summary(ai_summary)
+    if not summary_valid:
+        st.error(summary_message)
+        return
+
+    with st.expander("Review the minimized summary that would be sent", expanded=False):
+        st.json(ai_summary, expanded=False)
+
+    api_key = get_openai_api_key()
+    model = get_openai_model()
+    if not api_key:
+        st.info(
+            "AI interpretation is not configured. The simulator still works without AI. "
+            "Add `OPENAI_API_KEY` in Streamlit secrets to enable this optional feature."
+        )
+        st.code(
+            'OPENAI_API_KEY = "your-key-here"\n# Optional:\nOPENAI_MODEL = "gpt-5"',
+            language="toml",
+        )
+        return
+
+    st.caption(f"Configured model: `{model}`")
+    if st.button("Generate cautious AI interpretation"):
+        with st.spinner("Generating cautious interpretation..."):
+            try:
+                ai_text = generate_ai_interpretation(ai_summary, api_key, model)
+            except Exception as error:
+                st.error(
+                    "The AI interpretation request failed. Your workload data has not "
+                    "been changed. Please try again later or use the rule-based "
+                    "Leadership Interpretation tab."
+                )
+                st.caption(f"Technical detail: {error}")
+                return
+        st.session_state["ai_interpretation_text"] = ai_text
+        st.session_state["ai_interpretation_summary"] = ai_summary
+
+    ai_text = st.session_state.get("ai_interpretation_text", "")
+    if ai_text:
+        st.subheader("AI-assisted interpretation")
+        st.markdown(ai_text)
+        st.download_button(
+            "Download AI interpretation",
+            data=build_ai_interpretation_markdown(ai_text, ai_summary),
+            file_name="ai_interpretation.md",
+            mime="text/markdown",
+            key="ai_interpretation_download",
+        )
+        st.info(
+            "Reminder: this is a planning aid. Treat the output as a starting point "
+            "for discussion, not as a decision or objective assessment."
+        )
+
+
+def show_scenario_decision_matrix_tab(baseline_df, capacity_df):
+    st.subheader("Scenario Decision Matrix")
+    st.caption(
+        "Compare options using transparent, human-entered favourability scores. "
+        "The matrix calculates scores; people still make the decision."
+    )
+    st.warning(
+        "Use synthetic or non-sensitive scenario labels and descriptions in shared deployments. "
+        "Do not enter sensitive staff, HR, health, or confidential operational details."
+    )
+
+    if "decision_question" not in st.session_state:
+        st.session_state["decision_question"] = (
+            "Which software-support scenario is most suitable for the current planning period?"
+        )
+    if "decision_scenarios_df" not in st.session_state:
+        st.session_state["decision_scenarios_df"] = get_default_decision_scenarios()
+    if "decision_criteria_df" not in st.session_state:
+        st.session_state["decision_criteria_df"] = get_default_decision_criteria()
+    if "decision_scores_df" not in st.session_state:
+        st.session_state["decision_scores_df"] = get_default_decision_scores(
+            st.session_state["decision_scenarios_df"],
+            st.session_state["decision_criteria_df"],
+        )
+
+    st.markdown("#### Decision question")
+    decision_question = st.text_input(
+        "Decision question",
+        value=st.session_state["decision_question"],
+        help="Frame the comparison as the leadership question you are trying to answer.",
+        key="decision_question_input",
+    )
+    st.session_state["decision_question"] = decision_question
+
+    summary_df = st.session_state.get("scenario_summary_df", pd.DataFrame())
+    scenario_name = st.session_state.get("scenario_name", "No scenario built")
+    if not summary_df.empty:
+        scenario_summary = summary_df.iloc[0]
+        impact_note = (
+            f"{scenario_name}: baseline {scenario_summary['baseline_total_hours']:.0f} hours, "
+            f"scenario {scenario_summary['scenario_total_hours']:.0f} hours, "
+            f"delta {scenario_summary['hours_delta']:.0f} hours "
+            f"({scenario_summary['percentage_delta']:.1f}%)."
+        )
+        st.info(
+            "Current Scenario Impact output is available. You can copy this into "
+            f"the matrix workload impact or notes: {impact_note}"
+        )
+        if st.button("Add current simulator scenario to matrix"):
+            scenarios_df = st.session_state["decision_scenarios_df"].copy()
+            new_row = {
+                "scenario_name": scenario_name,
+                "short_description": "Scenario imported from the workload simulator.",
+                "scenario_type": "Other"
+                if scenario_name == "No scenario built"
+                else scenario_name.split(" - ")[0],
+                "expected_workload_impact": impact_note,
+                "implementation_effort": "Check scenario assumptions",
+                "recurring_bau_burden": "Check scenario assumptions",
+                "risk_level": "Check scenario assumptions",
+                "confidence_level": "Low"
+                if bool(scenario_summary.get("uncertainty_flag", False))
+                else "Medium",
+                "notes": "Imported as summary text only; review before using.",
+            }
+            scenarios_df = scenarios_df[
+                scenarios_df["scenario_name"].fillna("").astype(str).str.strip()
+                != scenario_name
+            ]
+            scenarios_df = pd.concat(
+                [scenarios_df, pd.DataFrame([new_row])], ignore_index=True
+            )
+            st.session_state["decision_scenarios_df"] = scenarios_df
+            st.session_state["decision_scores_df"] = align_decision_scores(
+                st.session_state["decision_scores_df"],
+                scenarios_df,
+                st.session_state["decision_criteria_df"],
+            )
+            st.rerun()
+
+    st.markdown("#### 1. Scenarios to compare")
+    scenarios_df = st.data_editor(
+        st.session_state["decision_scenarios_df"],
+        width="stretch",
+        num_rows="dynamic",
+        column_config={
+            "scenario_name": st.column_config.TextColumn("Scenario name", required=True),
+            "short_description": st.column_config.TextColumn(
+                "Short description", help="Use non-sensitive summary wording."
+            ),
+            "scenario_type": st.column_config.SelectboxColumn(
+                "Scenario type", options=DECISION_SCENARIO_TYPES, required=True
+            ),
+            "expected_workload_impact": st.column_config.TextColumn(
+                "Expected workload impact"
+            ),
+            "implementation_effort": st.column_config.TextColumn(
+                "Implementation effort"
+            ),
+            "recurring_bau_burden": st.column_config.TextColumn(
+                "Recurring BAU burden"
+            ),
+            "risk_level": st.column_config.TextColumn("Risk level"),
+            "confidence_level": st.column_config.SelectboxColumn(
+                "Confidence level", options=CONFIDENCE_LEVELS, required=True
+            ),
+            "notes": st.column_config.TextColumn(
+                "Optional notes", help="Notes stay local and are not sent to AI."
+            ),
+        },
+        key="decision_scenarios_editor",
+    )
+    st.session_state["decision_scenarios_df"] = scenarios_df
+
+    st.markdown("#### 2. Decision criteria and weights")
+    st.caption(
+        "Weights should total 100%. Scoring is always favourability scoring: "
+        "1 = weak/unfavourable, 5 = very strong/favourable."
+    )
+    criteria_df = st.session_state["decision_criteria_df"].copy()
+    active_weight_total = get_active_decision_criteria(criteria_df)["weight_pct"].sum()
+    cols = st.columns([1, 2])
+    with cols[0]:
+        st.metric("Active weight total", f"{active_weight_total:.1f}%")
+    with cols[1]:
+        if st.button("Normalise active weights to 100%"):
+            st.session_state["decision_criteria_df"] = normalise_decision_weights(
+                criteria_df
+            )
+            st.session_state["decision_scores_df"] = align_decision_scores(
+                st.session_state["decision_scores_df"],
+                scenarios_df,
+                st.session_state["decision_criteria_df"],
+            )
+            st.rerun()
+
+    criteria_df = st.data_editor(
+        st.session_state["decision_criteria_df"],
+        width="stretch",
+        num_rows="dynamic",
+        column_config={
+            "criterion": st.column_config.TextColumn("Criterion", required=True),
+            "enabled": st.column_config.CheckboxColumn("Use", default=True),
+            "weight_pct": st.column_config.NumberColumn(
+                "Weight %",
+                min_value=0.0,
+                max_value=100.0,
+                step=5.0,
+                required=True,
+            ),
+            "favourability_guidance": st.column_config.TextColumn(
+                "Favourability guidance"
+            ),
+        },
+        key="decision_criteria_editor",
+    )
+    st.session_state["decision_criteria_df"] = criteria_df
+
+    st.markdown("#### 3. Scenario scoring")
+    active_criteria = get_active_decision_criteria(criteria_df)
+    score_guidance = [
+        "1 = weak / unfavourable",
+        "2 = limited",
+        "3 = moderate",
+        "4 = strong",
+        "5 = very strong / favourable",
+    ]
+    st.caption("; ".join(score_guidance))
+    with st.expander("Favourability guidance for lower-is-better criteria"):
+        st.markdown(
+            """
+- Workload impact score 5 = manageable workload impact / highly favourable.
+- Risk score 5 = low risk / highly favourable.
+- Cost score 5 = low cost / highly favourable.
+- Complexity score 5 = low complexity / highly favourable.
+- Implementation effort score 5 = low implementation effort / highly favourable.
+- Recurring BAU burden score 5 = low recurring BAU burden / highly favourable.
+- Opportunity cost score 5 = low opportunity cost / highly favourable.
+            """
+        )
+
+    scores_df = align_decision_scores(
+        st.session_state["decision_scores_df"], scenarios_df, criteria_df
+    )
+    score_column_config = {"scenario_name": st.column_config.TextColumn("Scenario")}
+    for criterion in active_criteria["criterion"].tolist():
+        score_column_config[criterion] = st.column_config.NumberColumn(
+            criterion, min_value=1, max_value=5, step=1, required=True
+        )
+    scores_df = st.data_editor(
+        scores_df,
+        width="stretch",
+        hide_index=True,
+        disabled=["scenario_name"],
+        column_config=score_column_config,
+        key="decision_scores_editor",
+    )
+    st.session_state["decision_scores_df"] = scores_df
+
+    errors, warnings = validate_decision_matrix_inputs(
+        decision_question, scenarios_df, criteria_df, scores_df
+    )
+    for warning in warnings:
+        st.warning(warning)
+    if errors:
+        for error in errors:
+            st.error(error)
+        return
+
+    results_df, contribution_df = calculate_decision_matrix_scores(
+        scenarios_df, criteria_df, scores_df
+    )
+    recommendation_text = build_decision_recommendation_summary(
+        results_df, contribution_df
+    )
+    comparison_summary = build_decision_comparison_summary_object(
+        decision_question,
+        scenarios_df,
+        criteria_df,
+        results_df,
+        contribution_df,
+    )
+    st.session_state["decision_comparison_summary"] = comparison_summary
+
+    st.markdown("#### 4. Results")
+    left, right = st.columns([1, 1.2])
+    with left:
+        st.subheader("Ranked scenarios")
+        st.dataframe(
+            results_df,
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "total_weighted_score": st.column_config.NumberColumn(
+                    "Total weighted score", format="%.2f"
+                )
+            },
+        )
+    with right:
+        st.subheader("Visual comparison")
+        st.plotly_chart(make_decision_score_chart(results_df), width="stretch")
+
+    st.subheader("Criterion-by-criterion scoring")
+    st.dataframe(
+        contribution_df,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "score": st.column_config.NumberColumn("Score", format="%.0f"),
+            "weight_pct": st.column_config.NumberColumn("Weight %", format="%.1f"),
+            "weighted_score": st.column_config.NumberColumn(
+                "Weighted score", format="%.2f"
+            ),
+        },
+    )
+
+    st.subheader("Recommendation summary")
+    st.markdown(recommendation_text)
+
+    st.subheader("Decision prompts")
+    for prompt in DECISION_PROMPTS:
+        st.info(prompt)
+
+    st.subheader("Optional AI reflection on this comparison")
+    st.caption(
+        "The AI does not calculate scores or make the decision. It receives only a "
+        "summarised comparison object: decision question, scenario names and short "
+        "descriptions, active criteria and weights, ranked scores, trade-offs, and caveats."
+    )
+    with st.expander("Review the comparison summary that would be sent", expanded=False):
+        st.json(comparison_summary, expanded=False)
+
+    decision_ai_valid, decision_ai_message = validate_decision_ai_summary(
+        comparison_summary
+    )
+    api_key = get_openai_api_key()
+    model = get_openai_model()
+    if not decision_ai_valid:
+        st.error(decision_ai_message)
+    elif not api_key:
+        st.info(
+            "AI comparison interpretation is not configured. The decision matrix "
+            "still works without AI. Add `OPENAI_API_KEY` in Streamlit secrets to "
+            "enable optional AI reflection."
+        )
+    else:
+        st.caption(f"Configured model: `{model}`")
+        if st.button("Generate cautious AI interpretation of comparison"):
+            with st.spinner("Generating cautious comparison reflection..."):
+                try:
+                    decision_ai_text = generate_ai_decision_interpretation(
+                        comparison_summary, api_key, model
+                    )
+                except Exception as error:
+                    st.error(
+                        "The AI comparison request failed. The decision matrix has "
+                        "not been changed. Please use the non-AI recommendation "
+                        "summary and try again later."
+                    )
+                    st.caption(f"Technical detail: {error}")
+                    decision_ai_text = ""
+                if decision_ai_text:
+                    st.session_state["decision_ai_interpretation_text"] = (
+                        decision_ai_text
+                    )
+
+    decision_ai_text = st.session_state.get("decision_ai_interpretation_text", "")
+    if decision_ai_text:
+        st.markdown("##### AI comparison interpretation")
+        st.markdown(decision_ai_text)
+        st.info(
+            "Reminder: this output is reflective only. It should not be treated as "
+            "a decision, instruction, or objective assessment."
+        )
+
+    st.download_button(
+        "Download decision matrix summary",
+        data=build_decision_matrix_markdown(
+            decision_question,
+            scenarios_df,
+            criteria_df,
+            scores_df,
+            results_df,
+            recommendation_text,
+            decision_ai_text,
+        ),
+        file_name="scenario_decision_matrix_summary.md",
+        mime="text/markdown",
+        key="decision_matrix_summary_download",
+    )
+
+
 def show_data_tables_tab(
     filtered_df,
     baseline_df,
@@ -3040,7 +4282,9 @@ def main():
             "Baseline Current State",
             "Scenario Builder",
             "Scenario Impact",
+            "Scenario Decision Matrix",
             "Leadership Interpretation",
+            "AI-Assisted Interpretation",
             "Data Tables",
             "Data Schema / Beginner Notes",
         ]
@@ -3052,8 +4296,12 @@ def main():
     with tabs[2]:
         show_scenario_impact_tab(baseline_df, capacity_df)
     with tabs[3]:
-        show_leadership_interpretation_tab(baseline_df, capacity_df)
+        show_scenario_decision_matrix_tab(baseline_df, capacity_df)
     with tabs[4]:
+        show_leadership_interpretation_tab(baseline_df, capacity_df)
+    with tabs[5]:
+        show_ai_interpretation_tab(baseline_df, capacity_df)
+    with tabs[6]:
         show_data_tables_tab(
             filtered_df,
             baseline_df,
@@ -3061,7 +4309,7 @@ def main():
             capacity_df,
             templates_df,
         )
-    with tabs[5]:
+    with tabs[7]:
         show_schema_beginner_notes_tab()
 
 
