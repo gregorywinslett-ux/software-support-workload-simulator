@@ -221,6 +221,22 @@ SCENARIO_TEMPLATE_REQUIRED_COLUMNS = [
     "default_confidence",
     "notes",
 ]
+TASK_TIME_TEMPLATE_REQUIRED_COLUMNS = [
+    "template_id",
+    "category",
+    "task_name",
+    "default_hours",
+    "suggested_work_type",
+    "default_priority",
+    "default_confidence",
+    "description",
+    "source_label",
+]
+TASK_TIME_SUBTASK_REQUIRED_COLUMNS = [
+    "template_id",
+    "subtask_name",
+    "subtask_hours",
+]
 CANONICAL_MODEL_TABLES = [
     "team_profile",
     "team_capacity",
@@ -379,6 +395,60 @@ def load_sample_baseline_workload():
 
 def load_sample_scenario_task_templates():
     return pd.read_csv("sample_data/sample_scenario_task_templates.csv")
+
+
+def load_task_time_templates():
+    return pd.read_csv("sample_data/task_time_templates.csv")
+
+
+def load_task_time_subtasks():
+    return pd.read_csv("sample_data/task_time_subtasks.csv")
+
+
+def load_task_estimate_library():
+    try:
+        templates_df = load_task_time_templates()
+        subtasks_df = load_task_time_subtasks()
+    except FileNotFoundError:
+        return pd.DataFrame(), pd.DataFrame(), [
+            "Task estimate library files are missing. Manual work entry is still available."
+        ]
+    except Exception as error:
+        return pd.DataFrame(), pd.DataFrame(), [
+            f"Task estimate library could not be loaded: {error}"
+        ]
+
+    messages = []
+    template_missing = [
+        column
+        for column in TASK_TIME_TEMPLATE_REQUIRED_COLUMNS
+        if column not in templates_df.columns
+    ]
+    subtask_missing = [
+        column
+        for column in TASK_TIME_SUBTASK_REQUIRED_COLUMNS
+        if column not in subtasks_df.columns
+    ]
+    if template_missing:
+        messages.append(
+            "Task estimate templates are missing these columns: "
+            + ", ".join(template_missing)
+            + ". Manual work entry is still available."
+        )
+        templates_df = pd.DataFrame(columns=TASK_TIME_TEMPLATE_REQUIRED_COLUMNS)
+    if subtask_missing:
+        messages.append(
+            "Task estimate subtasks are missing these columns: "
+            + ", ".join(subtask_missing)
+            + ". Template subtasks will not be shown."
+        )
+        subtasks_df = pd.DataFrame(columns=TASK_TIME_SUBTASK_REQUIRED_COLUMNS)
+
+    if not templates_df.empty:
+        templates_df = prepare_task_time_templates(templates_df)
+    if not subtasks_df.empty:
+        subtasks_df = prepare_task_time_subtasks(subtasks_df)
+    return templates_df, subtasks_df, messages
 
 
 def read_uploaded_or_sample(uploaded_file, sample_loader):
@@ -625,6 +695,44 @@ def prepare_scenario_task_templates(df):
     return clean_numeric_columns(prepared_df, numeric_columns)
 
 
+def prepare_task_time_templates(df):
+    text_columns = [
+        "template_id",
+        "category",
+        "task_name",
+        "suggested_work_type",
+        "default_priority",
+        "default_confidence",
+        "description",
+        "source_label",
+    ]
+    prepared_df = clean_text_columns(
+        df,
+        text_columns,
+        {
+            "category": "Uncategorised",
+            "suggested_work_type": "Other",
+            "default_priority": "Medium",
+            "default_confidence": "Medium",
+            "source_label": "Sanitised task time estimate library",
+        },
+    )
+    prepared_df = clean_numeric_columns(prepared_df, ["default_hours"])
+    prepared_df = prepared_df[prepared_df["default_hours"] > 0].copy()
+    return prepared_df[TASK_TIME_TEMPLATE_REQUIRED_COLUMNS]
+
+
+def prepare_task_time_subtasks(df):
+    prepared_df = clean_text_columns(df, ["template_id", "subtask_name"])
+    prepared_df = clean_numeric_columns(prepared_df, ["subtask_hours"])
+    prepared_df = prepared_df[
+        (prepared_df["template_id"] != "")
+        & (prepared_df["subtask_name"] != "")
+        & (prepared_df["subtask_hours"] >= 0)
+    ].copy()
+    return prepared_df[TASK_TIME_SUBTASK_REQUIRED_COLUMNS]
+
+
 def parse_month_label(value):
     try:
         return pd.Period(str(value).strip(), freq="M")
@@ -738,6 +846,7 @@ def reset_demo_data():
         "role_delta_df",
         "work_type_delta_df",
         "canonical_model",
+        "task_estimate_library_status",
     ]:
         st.session_state.pop(key, None)
 
@@ -1094,6 +1203,11 @@ def build_planning_summary_markdown(canonical_model):
     review_summary = canonical_model["review_summary"]
     scenario_adjustments_df = canonical_model["scenario_adjustments"]
     over_capacity_months = review_summary["over_capacity_months"]
+    template_mask = work_items_df["notes"].fillna("").str.contains(
+        "Task estimate library template", case=False, regex=False
+    )
+    template_item_count = int(template_mask.sum())
+    template_hours = float(work_items_df.loc[template_mask, "estimated_hours"].sum())
 
     lines = [
         "# Software Support Workload Planning Summary",
@@ -1114,6 +1228,8 @@ def build_planning_summary_markdown(canonical_model):
         "",
         f"- Annual available capacity: {capacity_df['available_hours_year'].sum():,.0f} hours",
         f"- Assigned work items: {len(work_items_df):,}",
+        f"- Work items from task estimate templates: {template_item_count:,}",
+        f"- Estimated hours from task estimate templates: {template_hours:,.0f}",
         f"- Over-capacity months: {', '.join(over_capacity_months) if over_capacity_months else 'None'}",
         f"- High-priority work items: {len(review_summary['high_priority_work_items']):,}",
         f"- Low-confidence work items: {len(review_summary['low_confidence_work_items']):,}",
@@ -1154,6 +1270,7 @@ def build_planning_summary_markdown(canonical_model):
             "- Monthly workload is spread evenly across each work item's active month range.",
             "- Over-capacity is flagged when assigned workload exceeds available capacity in a month.",
             "- Scenario adjustments change workload or capacity according to the scenario builder assumptions.",
+            "- Task estimate library items are sanitised planning estimates and should be reviewed for local context.",
         ]
     )
     return "\n".join(lines).encode("utf-8")
@@ -1210,6 +1327,11 @@ def build_ai_summary_object(canonical_model, baseline_df, capacity_df):
     total_available = float(capacity_df["available_hours_year"].sum())
     total_assigned = float(baseline_df["calculated_total_hours"].sum())
     utilisation = total_assigned / total_available * 100 if total_available else 0
+    template_mask = work_items_df["notes"].fillna("").str.contains(
+        "Task estimate library template", case=False, regex=False
+    )
+    template_item_count = int(template_mask.sum())
+    template_hours = float(work_items_df.loc[template_mask, "estimated_hours"].sum())
 
     summary = {
         "app_context": {
@@ -1244,6 +1366,8 @@ def build_ai_summary_object(canonical_model, baseline_df, capacity_df):
             "over_capacity_months": review_summary.get("over_capacity_months", []),
             "low_confidence_item_count": int(len(low_confidence_df)),
             "high_priority_item_count": int(len(high_priority_df)),
+            "task_template_item_count": template_item_count,
+            "task_template_estimated_hours": round(template_hours, 1),
         },
         "monthly_summary": [
             {
@@ -3090,6 +3214,182 @@ def show_canonical_review(canonical_model, expanded=True):
         )
 
 
+def show_task_estimate_library(profile, templates_df, subtasks_df):
+    st.markdown("##### Add from task estimate library")
+    st.caption(
+        "Templates are planning aids, not performance measures. Review and adjust "
+        "the estimate for local context. Use generic role or workstream labels and "
+        "avoid sensitive personal information."
+    )
+
+    if templates_df.empty:
+        st.info(
+            "Task estimate templates are not available. You can still add work manually below."
+        )
+        return
+
+    categories = sorted(templates_df["category"].dropna().unique().tolist())
+    col1, col2 = st.columns(2)
+    with col1:
+        selected_category = st.selectbox(
+            "Task category",
+            categories,
+            key="task_library_category",
+        )
+    category_templates = templates_df[
+        templates_df["category"] == selected_category
+    ].copy()
+    template_labels = {
+        f"{row.task_name} ({row.default_hours:g} hrs)": row.template_id
+        for row in category_templates.itertuples(index=False)
+    }
+    with col2:
+        selected_label = st.selectbox(
+            "Task template",
+            list(template_labels.keys()),
+            key="task_library_template",
+        )
+
+    selected_template_id = template_labels[selected_label]
+    selected_template = category_templates[
+        category_templates["template_id"] == selected_template_id
+    ].iloc[0]
+
+    controls = st.columns(4)
+    with controls[0]:
+        quantity = st.number_input(
+            "Quantity",
+            min_value=0.1,
+            max_value=1000.0,
+            value=1.0,
+            step=1.0,
+            key="task_library_quantity",
+        )
+    with controls[1]:
+        multiplier = st.number_input(
+            "Multiplier",
+            min_value=0.1,
+            max_value=10.0,
+            value=1.0,
+            step=0.1,
+            help="Use this for local complexity or scale adjustments.",
+            key="task_library_multiplier",
+        )
+    with controls[2]:
+        start_month = st.text_input(
+            "Start month",
+            value=profile.get(
+                "planning_start_month", DEFAULT_TEAM_PROFILE["planning_start_month"]
+            ),
+            help="Use YYYY-MM format.",
+            key="task_library_start_month",
+        )
+    with controls[3]:
+        end_month = st.text_input(
+            "End month",
+            value=profile.get(
+                "planning_end_month", DEFAULT_TEAM_PROFILE["planning_end_month"]
+            ),
+            help="Use YYYY-MM format.",
+            key="task_library_end_month",
+        )
+
+    settings = st.columns(3)
+    with settings[0]:
+        priority = st.selectbox(
+            "Priority",
+            PRIORITY_LEVELS,
+            index=PRIORITY_LEVELS.index(selected_template.default_priority)
+            if selected_template.default_priority in PRIORITY_LEVELS
+            else PRIORITY_LEVELS.index("Medium"),
+            key="task_library_priority",
+        )
+    with settings[1]:
+        confidence = st.selectbox(
+            "Confidence",
+            CONFIDENCE_LEVELS,
+            index=CONFIDENCE_LEVELS.index(selected_template.default_confidence)
+            if selected_template.default_confidence in CONFIDENCE_LEVELS
+            else CONFIDENCE_LEVELS.index("Medium"),
+            key="task_library_confidence",
+        )
+    with settings[2]:
+        work_type = st.selectbox(
+            "Work type",
+            WORK_TYPES,
+            index=WORK_TYPES.index(selected_template.suggested_work_type)
+            if selected_template.suggested_work_type in WORK_TYPES
+            else WORK_TYPES.index("Other"),
+            key="task_library_work_type",
+        )
+
+    estimated_hours = (
+        to_float(selected_template.default_hours) * to_float(quantity) * to_float(multiplier)
+    )
+    st.metric("Calculated estimated hours", f"{estimated_hours:,.1f}")
+    st.caption(
+        f"Calculation: {selected_template.default_hours:g} default hours x "
+        f"{quantity:g} quantity x {multiplier:g} multiplier."
+    )
+
+    selected_subtasks = subtasks_df[
+        subtasks_df["template_id"] == selected_template_id
+    ].copy()
+    if not selected_subtasks.empty:
+        with st.expander("Preview subtask breakdown", expanded=False):
+            st.caption(
+                "Subtasks are shown to explain the estimate. They are not exact time records."
+            )
+            st.dataframe(
+                selected_subtasks,
+                width="stretch",
+                hide_index=True,
+                column_config={
+                    "template_id": None,
+                    "subtask_name": "Subtask",
+                    "subtask_hours": st.column_config.NumberColumn(
+                        "Hours", format="%.1f"
+                    ),
+                },
+            )
+            st.metric(
+                "Subtask total",
+                f"{selected_subtasks['subtask_hours'].sum():,.1f} hours",
+            )
+
+    if st.button("Add selected estimate to assigned work"):
+        if parse_month_label(start_month) is None or parse_month_label(end_month) is None:
+            st.error("Start month and end month must use YYYY-MM format.")
+            return
+        if parse_month_label(end_month) < parse_month_label(start_month):
+            st.error("End month must be the same as or after the start month.")
+            return
+
+        new_row = {
+            "work_title": selected_template.task_name,
+            "work_type": work_type,
+            "start_month": start_month,
+            "end_month": end_month,
+            "estimated_hours": round(estimated_hours, 1),
+            "priority": priority,
+            "confidence": confidence,
+            "notes": (
+                f"Task estimate library template {selected_template.template_id}; "
+                f"quantity={quantity:g}; multiplier={multiplier:g}; "
+                "sanitised planning estimate."
+            ),
+        }
+        st.session_state["builder_work_df"] = pd.concat(
+            [
+                st.session_state["builder_work_df"],
+                pd.DataFrame([new_row]),
+            ],
+            ignore_index=True,
+        )
+        st.success("Task estimate added to assigned work.")
+        st.rerun()
+
+
 def show_guided_builder():
     st.header("Baseline Capacity Builder")
     st.info(
@@ -3111,6 +3411,10 @@ def show_guided_builder():
         st.session_state["builder_people_df"] = get_default_people_entries()
     if "builder_work_df" not in st.session_state:
         st.session_state["builder_work_df"] = get_default_work_items()
+
+    task_templates_df, task_subtasks_df, task_library_messages = load_task_estimate_library()
+    for message in task_library_messages:
+        st.warning(message)
 
     with st.expander("1. Intro and planning principles", expanded=True):
         st.markdown(
@@ -3158,6 +3462,8 @@ possible.
         st.session_state["builder_people_df"] = people_df
 
     with st.expander("4. Assigned work", expanded=True):
+        show_task_estimate_library(profile, task_templates_df, task_subtasks_df)
+        st.markdown("##### Manual assigned work")
         work_df = st.data_editor(
             st.session_state["builder_work_df"],
             width="stretch",
@@ -4158,6 +4464,8 @@ def show_schema_beginner_notes_tab():
         "sample_data/sample_supported_software.csv": SUPPORTED_SOFTWARE_REQUIRED_COLUMNS,
         "sample_data/sample_baseline_workload.csv": BASELINE_WORKLOAD_REQUIRED_COLUMNS,
         "sample_data/sample_scenario_task_templates.csv": SCENARIO_TEMPLATE_REQUIRED_COLUMNS,
+        "sample_data/task_time_templates.csv": TASK_TIME_TEMPLATE_REQUIRED_COLUMNS,
+        "sample_data/task_time_subtasks.csv": TASK_TIME_SUBTASK_REQUIRED_COLUMNS,
     }
     for file_name, columns in schema.items():
         with st.expander(
@@ -4172,6 +4480,7 @@ def show_schema_beginner_notes_tab():
 - Team capacity is calculated as `fte x usable_hours_per_fte_per_year` when `available_hours_year` is blank or zero.
 - Workload hours are calculated as `annual_volume x hours_per_unit` unless an explicit role total is supplied.
 - Scenario templates are reusable assumptions. The builder turns selected templates into scenario workload rows.
+- Task estimate templates are sanitised planning estimates. They can prefill assigned work rows in the Baseline Capacity Builder.
 - Support-level multipliers reduce or expand the workload estimate for support intensity.
 - Demand multipliers change annual volume or annualised spike pressure.
 - Overload status comes from role utilisation: below 85% is under capacity, 85% to 100% is near capacity, 100% to 115% is over capacity, and above 115% is significantly over capacity.

@@ -61,6 +61,8 @@ Use this when you want to enter planning data directly in the app:
 
 The builder creates clean internal tables for team capacity, people availability, assigned work items, monthly workload, baseline workload, and scenario adjustments.
 
+The assigned work panel also includes a non-AI `Add from task estimate library` section. It lets users choose a sanitised task template, adjust quantity and multiplier, preview subtasks, and add the calculated estimate into the same assigned work table used by manual entries.
+
 ### 2. CSV Upload or Sample Data
 
 Use this when you already have CSV files or want to use the bundled demo data.
@@ -71,6 +73,8 @@ Expected files, also available in `sample_data/`:
 - `sample_data/sample_supported_software.csv`
 - `sample_data/sample_baseline_workload.csv`
 - `sample_data/sample_scenario_task_templates.csv`
+- `sample_data/task_time_templates.csv`
+- `sample_data/task_time_subtasks.csv`
 
 If no files are uploaded, the app uses the bundled synthetic sample data.
 
@@ -135,6 +139,24 @@ If no files are uploaded, the app uses the bundled synthetic sample data.
 - `default_confidence`
 - `notes`
 
+`task_time_templates.csv`
+
+- `template_id`
+- `category`
+- `task_name`
+- `default_hours`
+- `suggested_work_type`
+- `default_priority`
+- `default_confidence`
+- `description`
+- `source_label`
+
+`task_time_subtasks.csv`
+
+- `template_id`
+- `subtask_name`
+- `subtask_hours`
+
 ## Demo Mode
 
 The sidebar includes a `Reset demo data` button.
@@ -178,6 +200,33 @@ Monthly workload is spread evenly across each work item's active month range.
 Over-capacity is flagged when monthly assigned workload is greater than monthly available capacity.
 
 Scenario adjustments create a revised workload or capacity table and compare it with the baseline.
+
+Task estimate library items use:
+
+```text
+estimated_hours = default_hours x quantity x multiplier
+```
+
+The generated templates are sanitised planning estimates. They exclude adviser names, confirmation dates, and person-specific metadata from the original workbook.
+
+## Task Estimate Library
+
+The Baseline Capacity Builder includes a `Task Estimate Library` to make assigned-work entry faster and more consistent.
+
+Users can:
+
+- choose a category;
+- choose a task template;
+- review default hours;
+- adjust quantity;
+- apply a multiplier for local complexity or scale;
+- choose months, priority, confidence, and work type;
+- preview subtasks where available;
+- add the estimate into the manual assigned work table.
+
+The library is non-AI and transparent. It does not make decisions or measure individual performance. Templates should be reviewed and adjusted for local context before relying on them.
+
+The original spreadsheet was converted into sanitised CSV files under `sample_data/`. The generated files keep task categories, task names, estimated hours, and subtask breakdowns. They exclude adviser names, confirmation dates, HR/person-level metadata, and confidential notes.
 
 ## Scenario Modelling
 
@@ -269,6 +318,8 @@ The minimized summary sent to OpenAI excludes:
 - software names
 - sensitive personal information
 
+For task estimate library entries, the AI may receive only aggregate indicators such as the number of assigned work items created from templates and total estimated hours from templates. It does not receive raw task-library rows, subtasks, adviser names, confirmation data, or template notes.
+
 The AI output should be treated as draft reflection material only. Human judgement is required for all decisions.
 
 The Scenario Decision Matrix also has an optional AI reflection section. The AI does not calculate scores or make the decision. It can only interpret a summarised comparison object containing:
@@ -319,6 +370,7 @@ The checklist covers:
 - CSV upload with missing columns
 - Scenario adjustment
 - Scenario Decision Matrix scoring and export
+- Task Estimate Library selection and export safety
 - Export function
 - Demo data reset
 - AI disabled state
@@ -348,6 +400,8 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for a step-by-step deployment checklist.
 - The model uses simplified assumptions and should support planning conversations, not precise forecasting.
 - Work item hours are spread evenly across active months.
 - Role allocation for guided work items uses simple work-type defaults.
+- Task estimate templates are planning estimates and may need local adjustment.
+- Quantity and multiplier choices depend on human judgement.
 - AI interpretation is optional, cautionary, and not authoritative.
 - Scenario Decision Matrix scoring depends on human judgement.
 - Decision weights reflect values and priorities, not objective truth.

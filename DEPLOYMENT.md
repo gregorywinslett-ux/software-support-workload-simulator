@@ -71,10 +71,29 @@ Use the files in `sample_data/` to test upload behavior:
 - `sample_supported_software.csv`
 - `sample_baseline_workload.csv`
 - `sample_scenario_task_templates.csv`
+- `task_time_templates.csv`
+- `task_time_subtasks.csv`
 
 Confirm the dashboard and scenario simulator still load.
 
-## 8. Test Export
+## 8. Test Task Estimate Library
+
+The Task Estimate Library is a non-AI helper inside the Baseline Capacity Builder. It should work without secrets, API keys, databases, or external services.
+
+After deployment:
+
+1. Keep `Baseline data source` set to `Guided builder`.
+2. Open `4. Assigned work`.
+3. Confirm `Add from task estimate library` appears.
+4. Select a category and task template.
+5. Change quantity and multiplier and confirm the calculated hours update.
+6. Preview subtasks if available.
+7. Click `Add selected estimate to assigned work`.
+8. Confirm the item appears in the manual assigned-work table.
+9. Confirm the baseline review, dashboard, and scenario tabs still update.
+10. Confirm exports do not include adviser names, confirmation dates, API keys, or secrets.
+
+## 9. Test Export
 
 Click `Download planning summary` and confirm the Markdown file downloads.
 
@@ -85,6 +104,7 @@ The export should include:
 - monthly review
 - assumptions
 - active scenario summary, if a scenario has been built
+- aggregate task estimate template counts/hours, if template items have been added
 
 Also open the `Scenario Decision Matrix` tab and confirm:
 
@@ -95,7 +115,7 @@ Also open the `Scenario Decision Matrix` tab and confirm:
 - `Download decision matrix summary` downloads a Markdown file;
 - no API key or secret appears in the export.
 
-## 9. Test Scenario Decision Matrix
+## 10. Test Scenario Decision Matrix
 
 The Scenario Decision Matrix is a non-AI comparison tool. It should work without secrets, API keys, databases, or external services.
 
@@ -110,7 +130,7 @@ After deployment:
 7. Add the current simulator scenario from the Scenario Impact output, if available.
 8. Download the Markdown summary.
 
-## 10. Final Sharing Check
+## 11. Final Sharing Check
 
 Before sharing with colleagues:
 
@@ -120,8 +140,10 @@ Before sharing with colleagues:
 - Confirm the core app does not require login, a database, or API keys.
 - Confirm colleagues understand the privacy and appropriate-use cautions.
 - Confirm the Scenario Decision Matrix is described as a facilitation aid, not an automatic decision.
+- Confirm the raw task-time spreadsheet is not committed unless there is a deliberate reason.
+- Confirm generated task estimate CSVs are sanitised and contain no adviser names or confirmation metadata.
 
-## 11. Optional AI-Assisted Interpretation
+## 12. Optional AI-Assisted Interpretation
 
 The app includes optional AI interpretation for workload outputs and optional AI reflection for the Scenario Decision Matrix. Both remain disabled unless an OpenAI API key is configured.
 
@@ -162,3 +184,5 @@ The Scenario Decision Matrix AI summary sends only:
 - flagged caveats.
 
 It does not send API keys, raw uploaded files, staff names, person-level capacity data, sensitive notes, confidential operational detail, or raw scenario notes.
+
+Task estimate library data is not sent to AI as raw rows or subtasks. The workload AI summary may include only aggregate template indicators, such as template-created item count and total template-estimated hours.

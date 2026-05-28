@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.8 - Task Estimate Library
+
+- Added a non-AI Task Estimate Library inside the Baseline Capacity Builder.
+- Added sanitised task estimate template and subtask CSV files generated from the task-time workbook.
+- Added category/template selection, quantity, multiplier, month range, priority, confidence, work type, calculated-hours preview, and subtask preview.
+- Added template-created work items into the existing assigned-work table so they flow through the canonical model, review, dashboard, scenario simulator, and exports.
+- Added aggregate task-template indicators to the minimized AI workload summary while excluding raw template rows, subtasks, adviser names, confirmation dates, and person-specific metadata.
+- Updated README, deployment notes, and manual test checklist.
+
 ## v0.7 - Scenario Decision Matrix
 
 - Added non-AI `Scenario Decision Matrix` tab for comparing multiple software-support scenarios.

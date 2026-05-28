@@ -1,0 +1,299 @@
+template_id,subtask_name,subtask_hours
+TTL-001-teaching_staff_workshop_,Learning Tool/Technology,21.0
+TTL-001-teaching_staff_workshop_,Designing Workshop draft (Teaching checklist + workshop course / system example),21.0
+TTL-001-teaching_staff_workshop_,Design Workshop PowerPoint,3.0
+TTL-001-teaching_staff_workshop_,Practice run with Advisers (2 others),6.0
+TTL-001-teaching_staff_workshop_,Designing Workshop updates (Teaching checklist) - based on practice run feedback,3.0
+TTL-001-teaching_staff_workshop_,Eventbrite workshop template,1.0
+TTL-001-teaching_staff_workshop_,Workday course (+ approval form),2.0
+TTL-002-teaching_staff_workshops,Learning Tool/Technology,36.0
+TTL-002-teaching_staff_workshops,Designing Workshop draft (Teaching checklist + workshop course / system example),36.0
+TTL-002-teaching_staff_workshops,Design Workshop PowerPoint,3.0
+TTL-002-teaching_staff_workshops,Practice run with Advisers (4 others),10.0
+TTL-002-teaching_staff_workshops,Designing Workshop updates (Teaching checklist) - based on practice run feedback,7.0
+TTL-002-teaching_staff_workshops,Workshop teaching plan (to train others),21.0
+TTL-002-teaching_staff_workshops,Eventbrite workshop template,1.0
+TTL-002-teaching_staff_workshops,Workday course (+ approval form),2.0
+TTL-003-teaching_staff_workshops,Learning Tool/Technology,72.0
+TTL-003-teaching_staff_workshops,Designing Workshop draft (Teaching checklist + workshop course / system example),36.0
+TTL-003-teaching_staff_workshops,Design Workshop PowerPoint,3.0
+TTL-003-teaching_staff_workshops,Practice run with Advisers (4 others),10.0
+TTL-003-teaching_staff_workshops,Designing Workshop updates (Teaching checklist) - based on practice run feedback,7.0
+TTL-003-teaching_staff_workshops,Workshop teaching plan (to train others),36.0
+TTL-003-teaching_staff_workshops,Eventbrite workshop template,1.0
+TTL-003-teaching_staff_workshops,Workday course (+ approval form),2.0
+TTL-004-teaching_staff_workshops,Designing Workshop plan (based on F2F workshop) - assumes there is a F2F workshop that staff are familar with,7.0
+TTL-004-teaching_staff_workshops,Produce draft text based workshop,21.0
+TTL-004-teaching_staff_workshops,Trail daraft text based workshop and feedback by 2 other advisers,14.0
+TTL-004-teaching_staff_workshops,Finalise text based workshop based on feedback,14.0
+TTL-004-teaching_staff_workshops,Produce 10 instructional videos,70.0
+TTL-004-teaching_staff_workshops,Trail draft workshop (text and videos) and feedback by 2 other advisers,14.0
+TTL-004-teaching_staff_workshops,Finalise workshop based on feeback,14.0
+TTL-005-teaching_staff_workshops,Designing Workshop plan (based on F2F workshop) - assumes there is a F2F workshop that staff are familar with,14.0
+TTL-005-teaching_staff_workshops,Produce draft text based workshop,36.0
+TTL-005-teaching_staff_workshops,Finalise text based workshop based on feedback,21.0
+TTL-005-teaching_staff_workshops,Produce 15 instructional videos,105.0
+TTL-005-teaching_staff_workshops,Trail daraft text based workshop and feedback by 3 other advisers,21.0
+TTL-005-teaching_staff_workshops,Trail draft workshop (text and videos) and feedback by 3 other advisers,21.0
+TTL-005-teaching_staff_workshops,Finalise workshop based on feeback,21.0
+TTL-006-teaching_staff_workshop_,Review of current workshop and testing,7.0
+TTL-006-teaching_staff_workshop_,Designing Workshop draft (Teaching checklist + workshop course / system example),7.0
+TTL-006-teaching_staff_workshop_,Design Workshop PowerPoint,3.0
+TTL-006-teaching_staff_workshop_,Practice run with Advisers (2 Adviser),6.0
+TTL-006-teaching_staff_workshop_,Designing Workshop updates (Teaching checklist) - based on practice run feedback,3.0
+TTL-006-teaching_staff_workshop_,Workshop teaching plan (to train others) - Update,7.0
+TTL-006-teaching_staff_workshop_,Eventbrite workshop template - Update,1.0
+TTL-006-teaching_staff_workshop_,Workday course update,1.0
+TTL-007-teaching_staff_workshop_,Review of current workshop and testing,7.0
+TTL-007-teaching_staff_workshop_,Produce draft text based workshop - update,7.0
+TTL-007-teaching_staff_workshop_,Trail daraft text based workshop and feedback by 1 other advisers,7.0
+TTL-007-teaching_staff_workshop_,Finalise text based workshop based on feedback,7.0
+TTL-007-teaching_staff_workshop_,Produce 5 instructional videos,35.0
+TTL-007-teaching_staff_workshop_,Trail draft workshop (text and videos) and feedback by 1 other advisers,7.0
+TTL-007-teaching_staff_workshop_,Finalise workshop based on feeback,7.0
+TTL-008-workshop_scheduling_jan_,Planning list: review previous years for same time frame + consult with Team + consult with LDs,7.0
+TTL-008-workshop_scheduling_jan_,Set up scheule in spreadsheet,3.0
+TTL-008-workshop_scheduling_jan_,Set up schedule in calendars,3.0
+TTL-008-workshop_scheduling_jan_,Set up scheule in Workday or Eventbrite,3.0
+TTL-008-workshop_scheduling_jan_,Cross check spreadsheet / calendars / Workday or Eventbrite,3.0
+TTL-008-workshop_scheduling_jan_,Add list to upcoming newsletters,2.0
+TTL-008-workshop_scheduling_jan_,"Workshop preparation: review content, pre-email, add staff to course site",1.0
+TTL-008-workshop_scheduling_jan_,Workshop delivery:,2.0
+TTL-008-workshop_scheduling_jan_,"Workshop follow up: post email, stats, resources updates",1.0
+TTL-009-elearning_professional_d,Preparation,1.5
+TTL-009-elearning_professional_d,Delivery,2.0
+TTL-009-elearning_professional_d,Follow up,0.5
+TTL-010-consultations_with_elear,Consultation preparation - review ECP and testing regarding specific query,0.5
+TTL-010-consultations_with_elear,Consultation,1.25
+TTL-010-consultations_with_elear,Consultation follow up email and stats,0.25
+TTL-011-guide_update_staff,Testing to determine steps or consult support,0.5
+TTL-011-guide_update_staff,Produce guide (text and screen shots),1.0
+TTL-011-guide_update_staff,Proof reading,0.5
+TTL-012-guide_update_students,Proof reading,0.5
+TTL-012-guide_update_students,Testing to determine steps or consult support,0.5
+TTL-012-guide_update_students,Produce guide (text and screen shots),1.0
+TTL-013-new_guide_staff,Test steps + consult with Support,2.0
+TTL-013-new_guide_staff,Produce guide (text and screen shots),3.0
+TTL-013-new_guide_staff,Test and proof read guide,1.0
+TTL-014-new_guide_students,Testing to determine steps or consult support,1.0
+TTL-014-new_guide_students,Produce guide (text and screen shots),3.0
+TTL-014-new_guide_students,Proof reading,1.0
+TTL-015-new_guide_external_asses,Testing to determine steps or consult support,1.0
+TTL-015-new_guide_external_asses,Produce guide (text and screen shots),3.0
+TTL-015-new_guide_external_asses,Proof reading,1.0
+TTL-016-tool_guide_set_staff_cur,Testing to determine steps or consult support,1.0
+TTL-016-tool_guide_set_staff_cur,Produce guide (text and screen shots),3.0
+TTL-016-tool_guide_set_staff_cur,Proof reading,1.0
+TTL-016-tool_guide_set_staff_cur,Review vendor + ITS guides,2.0
+TTL-016-tool_guide_set_staff_cur,"Create 3 new guides (access, recommended technical setting, t&l + policy guidance)",18.0
+TTL-016-tool_guide_set_staff_cur,Create tool guide page and link vendor + ITS + new UQ guide + Workshop link + consult link + ITaLI website cross links,2.0
+TTL-017-tool_guide_set_staff_cur,Review vendor + ITS guides,6.0
+TTL-017-tool_guide_set_staff_cur,"Create 7 new guides (access, recommended technical setting, t&l + policy guidance)",42.0
+TTL-017-tool_guide_set_staff_cur,Create tool guide page and link vendor + ITS + new UQ guide + Workshop link + consult link + ITaLI website cross links,4.0
+TTL-018-tool_guide_set_staff_no_,Testing to deternmine guide list and learn tool,7.0
+TTL-018-tool_guide_set_staff_no_,"Create 7 new guides (access, recommended technical setting, t&l + policy guidance)",42.0
+TTL-018-tool_guide_set_staff_no_,Create tool guide page and link new UQ guides + Workshop link + consult link + ITaLI website cross links,4.0
+TTL-019-tool_guide_set_staff_no_,Testing to deternmine guide list and learn tool,14.0
+TTL-019-tool_guide_set_staff_no_,"Create 12 new guides (access, recommended technical setting, t&l + policy guidance)",72.0
+TTL-019-tool_guide_set_staff_no_,Create tool guide page and link new UQ guides + Workshop link + consult link + ITaLI website cross links,5.0
+TTL-020-tool_guide_set_students,Review vendor guides + testing,2.0
+TTL-020-tool_guide_set_students,"Create 5 new guides (access, UQ Blackboard set up)",25.0
+TTL-020-tool_guide_set_students,Create tool guide page and link vendor + I new UQ guide,2.0
+TTL-020-tool_guide_set_students,Communicate with AskUs regarding update,1.0
+TTL-021-instructional_video,Video plan (based on guide),1.0
+TTL-021-instructional_video,Blackboard course / tool set up,1.0
+TTL-021-instructional_video,Video recording,2.0
+TTL-021-instructional_video,Video editing,2.0
+TTL-021-instructional_video,Video rendering & Youtube upload & eLearning website links,1.0
+TTL-022-video_case_study,"Video admin - request to staff, q&a, follow up",1.0
+TTL-022-video_case_study,Blackboard course / tool set up,1.0
+TTL-022-video_case_study,Video recording - tool overlay,1.0
+TTL-022-video_case_study,Video editing,3.0
+TTL-022-video_case_study,Video rendering & Youtube upload & eLearning website links,1.0
+TTL-023-newsletter_article_one_o,Draft newsletter article,1.0
+TTL-023-newsletter_article_one_o,Feedback from and Adviser,0.5
+TTL-023-newsletter_article_one_o,Article update,0.5
+TTL-024-newsletter_article_new_c,Draft newsletter article,1.0
+TTL-024-newsletter_article_new_c,Feedback from and Advisers (2),1.0
+TTL-024-newsletter_article_new_c,Article update + scheduling into yearly calendar,1.0
+TTL-025-impact_messages,Create campaign and message,1.0
+TTL-025-impact_messages,Message check with team and approval by Manager,1.0
+TTL-026-subject_matter_expert_ad,Review email OR meeting discussion OR Teams posts,0.25
+TTL-026-subject_matter_expert_ad,Determine answer (guide review/ testing) OR meeting answer / explanation,0.5
+TTL-026-subject_matter_expert_ad,Response email OR meeting follow up,0.25
+TTL-027-tool_presentation_develo,Testing of the tool,1.0
+TTL-027-tool_presentation_develo,Preparing slides and script,2.0
+TTL-027-tool_presentation_develo,Practicing presentation,2.0
+TTL-028-tool_presentation_delive,Preparation/practice,0.5
+TTL-028-tool_presentation_delive,Delivery,1.0
+TTL-028-tool_presentation_delive,Follow up,0.5
+TTL-029-teaching_and_elearning_n,Create newsletter template and add recurring articles,1.0
+TTL-029-teaching_and_elearning_n,Write/ edit articles as required,1.0
+TTL-029-teaching_and_elearning_n,Proofread,1.0
+TTL-029-teaching_and_elearning_n,Fix or make corrections post named person 1st check,0.5
+TTL-029-teaching_and_elearning_n,Team check,1.0
+TTL-029-teaching_and_elearning_n,Update changes from team check,1.0
+TTL-029-teaching_and_elearning_n,Fix or make corrections post named person 2nd check,0.5
+TTL-029-teaching_and_elearning_n,Communications with Marcomms to finalise newsletter changes as required,2.0
+TTL-029-teaching_and_elearning_n,Final approvals,1.0
+TTL-029-teaching_and_elearning_n,Publish final newsletter,1.0
+TTL-030-adhoc_issue_comms,Investigate issue OR liase with subject matter expert or eLearning Support or eLearning Advisers,1.0
+TTL-030-adhoc_issue_comms,Formulate response and proposed solution,1.0
+TTL-030-adhoc_issue_comms,Review release notes determine if testing is required,0.25
+TTL-030-adhoc_issue_comms,Testing new functionality / determine technical and pedagogical impacts - log job with support / vendor if issue identified,1.0
+TTL-030-adhoc_issue_comms,"Comms to relevant core teams: within eLearning, Library, ITaLI LDs, ITaLI DLU, DLC, ITS, Examinations, Student Conduct",0.5
+TTL-030-adhoc_issue_comms,"Email guide requests if needed, notfiy eLearning Adviser Manager if Change Manage Pack required.",0.25
+TTL-031-bau_tool_update_release_,Review release notes determine if testing is required,0.25
+TTL-031-bau_tool_update_release_,Testing new functionality / determine technical and pedagogical impacts - log job with support / vendor if issue identified,1.0
+TTL-031-bau_tool_update_release_,"Comms to relevant core teams: within eLearning, Library, ITaLI LDs, ITaLI DLU, DLC, ITS, Examinations, Student Conduct",0.5
+TTL-031-bau_tool_update_release_,"Email guide requests if needed, notfiy eLearning Adviser Manager if Change Manage Pack required.",0.25
+TTL-032-change_management_pack_s,Additiona functionality testing (initial testing done as part of release testing),3.0
+TTL-032-change_management_pack_s,Core service: Impact Messages,2.0
+TTL-032-change_management_pack_s,Core service: Newsletter article (one off),2.0
+TTL-032-change_management_pack_s,"Communications to relevent professional teams: Learning Designers, Examinations, ITS",1.0
+TTL-032-change_management_pack_s,Core Service: Tool presentation development,5.0
+TTL-032-change_management_pack_s,Core Service: Tool presentation delivery,2.0
+TTL-033-elof_organisation,Contribute to agenda planning,1.0
+TTL-033-elof_organisation,Organise @coalface presentation,1.0
+TTL-033-elof_organisation,Slides and practicing (does not cover main tool presentation),2.0
+TTL-033-elof_organisation,Core activity: Tool presentation development (half time allocation),2.5
+TTL-033-elof_organisation,Core activity: Tool presentation delivery (repeats) (half time allocation),1.0
+TTL-034-learn_uq_exams_qa_1000_f,S1 Mid-sem exams: Adviser training,5.0
+TTL-034-learn_uq_exams_qa_1000_f,S1 Mid-sem exams: 1st check,14.0
+TTL-034-learn_uq_exams_qa_1000_f,S1 Mid-sem exams: Follow up,10.0
+TTL-034-learn_uq_exams_qa_1000_f,S1 End-of-sem exams: Advisers training,2.0
+TTL-034-learn_uq_exams_qa_1000_f,S1 End-of-sem exams: 1st check,20.0
+TTL-034-learn_uq_exams_qa_1000_f,S1 End-of-sem exams: Follow up,21.0
+TTL-034-learn_uq_exams_qa_1000_f,S1 EOS Def/sup exams: 1st check,20.0
+TTL-034-learn_uq_exams_qa_1000_f,S1 EOS Def/sup exams: follow up,21.0
+TTL-034-learn_uq_exams_qa_1000_f,S2 Mid-sem exams: Advisers training,5.0
+TTL-034-learn_uq_exams_qa_1000_f,S2 Mid-sem exams: 1st check,14.0
+TTL-034-learn_uq_exams_qa_1000_f,S2 Mid-sem exams: Follow up,10.0
+TTL-034-learn_uq_exams_qa_1000_f,S2 End-of-sem exams: Advisers training,2.0
+TTL-034-learn_uq_exams_qa_1000_f,S2 End-of-sem exams: 1st check,20.0
+TTL-034-learn_uq_exams_qa_1000_f,S2 End-of-sem exams: Follow up,18.0
+TTL-034-learn_uq_exams_qa_1000_f,S2 EOS Def/sup exams: 1st check,20.0
+TTL-034-learn_uq_exams_qa_1000_f,S2 EOS Def/sup exams: follow up,21.0
+TTL-034-learn_uq_exams_qa_1000_f,Summer Semester exams: 1st check,10.0
+TTL-034-learn_uq_exams_qa_1000_f,Summer Semester exams: follow up,8.0
+TTL-034-learn_uq_exams_qa_1000_f,Procedure updates,2.0
+TTL-034-learn_uq_exams_qa_1000_f,S1 Mid-sem ProctorU prac exam setup,3.0
+TTL-034-learn_uq_exams_qa_1000_f,S1 Mid-sem ProctorU info sessions for staff,6.0
+TTL-034-learn_uq_exams_qa_1000_f,S1 End-of-sem ProctorU prac exam setup,3.0
+TTL-034-learn_uq_exams_qa_1000_f,S1 End-of-sem ProctorU info sessions for staff,6.0
+TTL-034-learn_uq_exams_qa_1000_f,S2 Mid-sem ProctorU prac exam setup,3.0
+TTL-034-learn_uq_exams_qa_1000_f,S2 Mid-sem ProctorU info sessions for staff,6.0
+TTL-034-learn_uq_exams_qa_1000_f,S2 End-of-sem ProctorU prac exam setup,3.0
+TTL-034-learn_uq_exams_qa_1000_f,S2 End-of-sem ProctorU info sessions for staff,6.0
+TTL-035-inspera_exams_qa_1000_fi,S1 Mid-sem exams: Advisers training,5.0
+TTL-035-inspera_exams_qa_1000_fi,S1 Mid-sem exams: 1st check (test creation+1st check),6.0
+TTL-035-inspera_exams_qa_1000_fi,S1 Mid-sem exams: Follow up,4.0
+TTL-035-inspera_exams_qa_1000_fi,S1 End-of-sem exams: 1st check (test creation+1st check),12.0
+TTL-035-inspera_exams_qa_1000_fi,S1 End-of-sem exams: Follow up,8.0
+TTL-035-inspera_exams_qa_1000_fi,S1 EOS Def/sup exams: 1st check (test creation+1st check),12.0
+TTL-035-inspera_exams_qa_1000_fi,S1 EOS Def/sup exams: follow up,8.0
+TTL-035-inspera_exams_qa_1000_fi,S2 Mid-sem exams: Advisers training,5.0
+TTL-035-inspera_exams_qa_1000_fi,S2 Mid-sem exams: 1st check (test creation+1st check),6.0
+TTL-035-inspera_exams_qa_1000_fi,S2 Mid-sem exams: Follow up,4.0
+TTL-035-inspera_exams_qa_1000_fi,S2 End-of-sem exams: 1st check (test creation+1st check),12.0
+TTL-035-inspera_exams_qa_1000_fi,S2 End-of-sem exams: Follow up,8.0
+TTL-035-inspera_exams_qa_1000_fi,S2 EOS Def/sup exams: 1st check (test creation+1st check),12.0
+TTL-035-inspera_exams_qa_1000_fi,S2 EOS Def/sup exams: follow up,8.0
+TTL-035-inspera_exams_qa_1000_fi,Summer Semester exams: 1st check (test creation+1st check),6.0
+TTL-035-inspera_exams_qa_1000_fi,Summer Semester exams: follow up,4.0
+TTL-035-inspera_exams_qa_1000_fi,Procedure updates,2.0
+TTL-036-workshops_elearning_prof,Core activity: Teaching staff workshop update (F2F),35.0
+TTL-036-workshops_elearning_prof,Core activity: Teaching staff workshop update (Self-paced),77.0
+TTL-036-workshops_elearning_prof,Core activity: Workshop scheduling (Jan-Feb /R2Teach & R2Tutor (2) / June July / Nov-Dec / LD Summer,21.0
+TTL-036-workshops_elearning_prof,Core activity: eLearning Professional Development Workshop Delivery,100.0
+TTL-037-guides_online_for_staff_,Core service: New guide staff,25.0
+TTL-037-guides_online_for_staff_,Core service: New guide students,8.0
+TTL-037-guides_online_for_staff_,Core service: Guide update staff,274.0
+TTL-037-guides_online_for_staff_,Core service: Guide update students,104.0
+TTL-037-guides_online_for_staff_,Core service: Guide removal,54.0
+TTL-039-core_service_bau_tools_u,Core activity: BAU tool update release testing and comms,156.0
+TTL-040-core_service_subject_mat,Core activity: Subject Matter Expert Advice Support Units (per question,230.0
+TTL-041-core_service_change_mana,Core activity: Video case study,8.0
+TTL-041-core_service_change_mana,Core activity: Teaching and Elearning Newsletters,24.0
+TTL-041-core_service_change_mana,Core activity: Impact Messages (Semester 1 What's new),5.0
+TTL-041-core_service_change_mana,Core activity: Impact Messages (Semester 2 What's new),5.0
+TTL-041-core_service_change_mana,Core activity: Change management pack significant BAU tool update,6.0
+TTL-041-core_service_change_mana,Core activity: ELOF organisation,10.0
+TTL-041-core_service_change_mana,Core activity: Adhoc issue comms,8.0
+TTL-041-core_service_change_mana,Core activity: Change management pack for LDs,1.0
+TTL-042-change_management_pack_f,Draft text for comms,3.0
+TTL-042-change_management_pack_f,Liaising with ITaLi Marcomms about drafts and updates for staff,2.0
+TTL-042-change_management_pack_f,Liasing with Library Comms about drafts and updates for students,2.0
+TTL-042-change_management_pack_f,Core activity: Tool presentation development,5.0
+TTL-042-change_management_pack_f,Meetings with school and faculty LDs regarding pack (10x0.5),5.0
+TTL-042-change_management_pack_f,Meeting scheduling and follow up (10x0.5),5.0
+TTL-043-change_management_pack_f,Tool presentation development,5.0
+TTL-043-change_management_pack_f,Meet with school / faculty stakeholders - check ins and issue follow up,3.0
+TTL-043-change_management_pack_f,Meet with school / faculty stakeholders regarding usage of final package + training (3 groups x 1 hour),3.0
+TTL-043-change_management_pack_f,Meet with school / faculty stakeholders regarding requirements (3 groups x 1 hour),3.0
+TTL-043-change_management_pack_f,Draft text for comms,4.0
+TTL-043-change_management_pack_f,Liaising with ITaLi Marcomms about drafts and updates for staff,2.0
+TTL-043-change_management_pack_f,Liasing with school / faculty stakeholders for feedback on drafts,2.0
+TTL-044-pilot_report,Gathering feedback,7.0
+TTL-044-pilot_report,Draft feedback,7.0
+TTL-044-pilot_report,Finalised report based on Manager feedback,5.0
+TTL-044-pilot_report,Proof reading,2.0
+TTL-045-business_case,Gathering feedback,7.0
+TTL-045-business_case,Draft feedback,7.0
+TTL-045-business_case,Finalised report based on Manager feedback,5.0
+TTL-045-business_case,Proof reading,2.0
+TTL-046-project_closure_report,Gathering feedback,7.0
+TTL-046-project_closure_report,Draft feedback,7.0
+TTL-046-project_closure_report,Finalised report based on Manager feedback,5.0
+TTL-046-project_closure_report,Proof reading,2.0
+TTL-047-legal_post_successful_pi,Initial request,2.0
+TTL-047-legal_post_successful_pi,Liaising with lawyer & answering questions,6.0
+TTL-047-legal_post_successful_pi,Liaising with vendor,3.0
+TTL-047-legal_post_successful_pi,Review of contract,3.0
+TTL-048-finance_new_tool_licence,Initial request,1.0
+TTL-048-finance_new_tool_licence,Vendor quote and follow up,2.0
+TTL-048-finance_new_tool_licence,Invoice and follow up,2.0
+TTL-048-finance_new_tool_licence,Payment and follow up,2.0
+TTL-049-procurement_managed_by_i,Create project page,2.0
+TTL-049-procurement_managed_by_i,Updates to project page,1.0
+TTL-049-procurement_managed_by_i,Create scoping document,3.0
+TTL-049-procurement_managed_by_i,Working Party Meetings,5.0
+TTL-049-procurement_managed_by_i,Report on progress at eLearning Service Meetings,5.0
+TTL-049-procurement_managed_by_i,"Project team meetings (BA, PM, ITS technical staff etc.)",5.0
+TTL-049-procurement_managed_by_i,Initial offer review and shortlisting,4.0
+TTL-049-procurement_managed_by_i,Attend Evaluation Kick-off Meeting,1.0
+TTL-049-procurement_managed_by_i,Attend Individual Scoring Sheet Walkthrough meeting,1.0
+TTL-049-procurement_managed_by_i,Attend Preliminary Review Offers & Prepare Scoring Sheets,1.0
+TTL-049-procurement_managed_by_i,Attend Preliminary Review Offers & Prepare Scoring Sheets meeting,2.0
+TTL-049-procurement_managed_by_i,Attend Start Individual Scoring Support meeting,1.0
+TTL-049-procurement_managed_by_i,Attend End Individual Scoring Support meeting,1.0
+TTL-049-procurement_managed_by_i,Scoring Meeting Minutes Review and Endorsement,1.0
+TTL-049-procurement_managed_by_i,Attend Moderation meeting,1.0
+TTL-049-procurement_managed_by_i,Attend Vendor demo 1 and notetaking,4.0
+TTL-049-procurement_managed_by_i,Attend Vendor demo 2 and notetaking,4.0
+TTL-049-procurement_managed_by_i,Attend Vendor demo 3 and notetaking,4.0
+TTL-049-procurement_managed_by_i,Attend Vendor demo 4 and notetaking,4.0
+TTL-049-procurement_managed_by_i,Meet with BA to finalise vendor questions and responses,1.0
+TTL-049-procurement_managed_by_i,Contribute to solution recommendation report,3.0
+TTL-049-procurement_managed_by_i,Attend Recommendation Review meeting,1.0
+TTL-050-procurement_led_by_elear,Create project page,2.0
+TTL-050-procurement_led_by_elear,Updates to project page,1.0
+TTL-050-procurement_led_by_elear,Report on progress at eLearning Service Meetings,5.0
+TTL-050-procurement_led_by_elear,"Project team meetings (BA, PM, ITS technical staff etc.)",5.0
+TTL-050-procurement_led_by_elear,Meetings with the vendor,4.0
+TTL-050-procurement_led_by_elear,Attend vendor training sessions,5.0
+TTL-050-procurement_led_by_elear,Determine governance and structure of site with associated rules,3.0
+TTL-050-procurement_led_by_elear,Create survey on setup in Project channel to gather inital feedback,1.0
+TTL-050-procurement_led_by_elear,Run meeting where everyone completes feedback survey live,1.0
+TTL-050-procurement_led_by_elear,Review survey feedback and make changes,2.0
+TTL-050-procurement_led_by_elear,Set up staging environment,3.0
+TTL-050-procurement_led_by_elear,System user testing,5.0
+TTL-050-procurement_led_by_elear,Live system setup and configuration,6.0
+TTL-050-procurement_led_by_elear,Contract finalisation with vendor and ITS procurement,4.0
+TTL-050-procurement_led_by_elear,TEL Early Adopters team channel setup,1.0
+TTL-050-procurement_led_by_elear,TEL Early Adopters team channel updates/answering questions,4.0
+TTL-050-procurement_led_by_elear,Manage SSO integration in collaboration with ITS,3.0
+TTL-051-procurement_post_success,Meethings and comms wiht ITS procurement,6.0
+TTL-051-procurement_post_success,Procurement plan,4.0
+TTL-051-procurement_post_success,Collect procurement documentation,4.0
+TTL-051-procurement_post_success,Liasise with vender,4.0

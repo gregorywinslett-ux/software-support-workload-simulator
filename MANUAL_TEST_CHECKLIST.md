@@ -10,6 +10,21 @@ Use this checklist before sharing or deploying the Software Support Workload Sim
 - Confirm the review panel shows monthly available capacity, assigned workload, remaining capacity, and over-capacity status.
 - Confirm the dashboard tabs populate from the guided baseline.
 
+## Task Estimate Library
+
+- In the Baseline Capacity Builder, open `4. Assigned work`.
+- Confirm `Add from task estimate library` appears.
+- Select a task category and task template.
+- Confirm default hours are shown.
+- Change quantity and multiplier and confirm calculated estimated hours updates.
+- Open the subtask preview and confirm subtasks are visible where available.
+- Click `Add selected estimate to assigned work`.
+- Confirm the selected task appears as a row in the manual assigned-work table.
+- Confirm manually edited rows still work.
+- Confirm the canonical review updates after the task-library row is added.
+- Confirm the dashboard and scenario simulator still work.
+- Confirm exports do not include adviser names, confirmation metadata, API keys, or secrets.
+
 ## Baseline Builder With Missing Data
 
 - Clear the team name and confirm a plain-English required-team-name message appears.
@@ -60,6 +75,7 @@ Use this checklist before sharing or deploying the Software Support Workload Sim
 - Confirm the app shows a clear message that AI is not configured.
 - Confirm the rest of the simulator still works.
 - Confirm the minimized summary expander does not include staff names, raw uploaded files, free-text notes, raw work item titles, or software names.
+- If task estimate library items have been added, confirm the AI summary includes only aggregate template counts/hours, not raw task-library rows or subtasks.
 
 ## AI Enabled State
 
