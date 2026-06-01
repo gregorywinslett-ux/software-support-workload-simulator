@@ -29,7 +29,7 @@ python3 -m streamlit run scenario-studio/streamlit_app.py
 For Streamlit Community Cloud:
 
 - Repository: `gregorywinslett-ux/software-support-workload-simulator`
-- Branch: `main`
+- Branch: `codex-scenario-studio-streamlit`
 - Main file path: `scenario-studio/streamlit_app.py`
 - Requirements file: repository root `requirements.txt`
 
@@ -40,6 +40,8 @@ The Streamlit wrapper embeds the static prototype in an iframe with its CSS and 
 - Setup, focal question scoring, driving forces, clustering, plausible extremes
 - Impact/uncertainty matrix and pairwise comparison
 - Scenario matrix, sketches, timelines, critique and strategic implications
+- Scenario Stress-Test Theatre for testing strategies across all four futures
+- Weak Signals Monitor with scenario activation scoring, review cadence and evidence history
 - Parking lot, decision log, facilitator prompts and step timer
 - Sample data loader for immediate demonstration
 - JSON export/import, clipboard summary, text exports and printable report
@@ -52,6 +54,8 @@ The Streamlit wrapper embeds the static prototype in an iframe with its CSS and 
 - Facilitator command palette (`Cmd/Ctrl+K`)
 - Presentation summary, workshop recap, force constellation, early warning dashboard and action portfolio views
 - Enhanced strategic action table with owner, timeframe, effort, confidence and next-decision fields
+- Stress-test portfolio, scenario fit heatmap and exportable stress-test notes
+- Scenario weather map, weak-signal filters, signal detail editor and review-history updates
 
 ## Notes
 

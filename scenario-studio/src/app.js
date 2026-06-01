@@ -11,13 +11,17 @@
  * @typedef {{id:string,title:string,year:string,description:string,cause:string,consequence:string,stakeholders:string,signal:string,plausibility:string}} TimelineEvent
  * @typedef {{id:string,text:string,status:"accepted"|"edited"|"parked"|"rejected"}} CritiqueNote
  * @typedef {{id:string,title:string,description:string,owner:string,timeframe:string,effort:number,confidence:number,ratings:Record<string,string>,classification:string}} StrategicAction
+ * @typedef {{scenarioId:string,fitScore:number,riskScore:number,workloadBurden:number,confidence:number,strategicValue:number,reversibility:number,resultLabel:string,whatHappens:string,keyRisks:string,adaptationNeeded:string,conditionsForSuccess:string,earlyWarningSignals:string,notes:string}} StressTestScenarioResult
+ * @typedef {{id:string,actionTitle:string,actionDescription:string,actionType:string,owner:string,timeframe:string,createdAt:string,scenarioResults:StressTestScenarioResult[],overallClassification:string,suggestedClassification:string,overallNotes:string,adaptationSummary:string,decisionRecommendation:string}} StrategicStressTest
+ * @typedef {{id:string,date:string,strength:string,confidence:string,direction:string,evidence:string,notes:string}} WeakSignalHistoryEntry
+ * @typedef {{id:string,title:string,description:string,linkedScenarioIds:string[],category:string,currentStrength:string,confidence:string,direction:string,evidence:string,source:string,owner:string,reviewCadence:string,lastReviewed:string,nextReview:string,notes:string,history:WeakSignalHistoryEntry[]}} WeakSignal
  * @typedef {{id:string,step:number,text:string,createdAt:string}} DecisionLogEntry
  * @typedef {{id:string,text:string,sourceStep:number,createdAt:string}} ParkingLotItem
  */
 
-const STATE_VERSION = 2;
-const STORAGE_KEY = "scenario-studio-state-v2";
-const LEGACY_STORAGE_KEYS = ["scenario-studio-state-v1"];
+const STATE_VERSION = 3;
+const STORAGE_KEY = "scenario-studio-state-v3";
+const LEGACY_STORAGE_KEYS = ["scenario-studio-state-v2", "scenario-studio-state-v1"];
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
 const uid = (prefix) => `${prefix}_${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-4)}`;
@@ -34,6 +38,8 @@ const steps = [
   ["Storylines", "Create causal timelines."],
   ["Critique", "Challenge and strengthen scenarios."],
   ["Strategic Implications", "Test actions across futures."],
+  ["Stress-Test Theatre", "Put strategies under the lights."],
+  ["Weak Signals Monitor", "Track which futures may be emerging."],
   ["Export", "Produce useful artefacts."],
 ];
 
@@ -55,7 +61,9 @@ const prompts = {
   8: ["What happens first?", "What accelerates change?", "What resists change?", "What becomes visible too late?"],
   9: ["What feels too neat or linear?", "What actor is missing?", "What would make this more uncomfortable?", "Is this distinct from the others?"],
   10: ["Which actions are robust across futures?", "What should be delayed until a signal appears?", "What should be stopped now?"],
-  11: ["Export the narrative while decisions are still fresh.", "Print to PDF for a stable workshop artefact."],
+  11: ["Put one strategy under the lights.", "Ask what changes in each future.", "Look for adaptations, not just approval."],
+  12: ["What signals would tell us a scenario is emerging?", "What has changed since last review?", "Which actions need attention if this signal strengthens?"],
+  13: ["Export the narrative while decisions are still fresh.", "Print to PDF for a stable workshop artefact."],
 };
 
 const stepGuides = [
@@ -148,6 +156,22 @@ const stepGuides = [
     reassurance: "The best action is not always the boldest. Sometimes it is the one that keeps options open.",
   },
   {
+    plain: "We are putting one proposed strategy under the lights and asking how it behaves in each scenario.",
+    why: "A strategy may look sensible in today's world but become fragile, risky or powerful under different futures.",
+    example: "A central AI teaching support hub may be robust in coordinated acceleration but overloaded in automation without absorption.",
+    good: ["Each scenario has a clear fit/risk judgement.", "Adaptations and success conditions are captured.", "The recommendation is transparent and editable."],
+    trap: "Treating this as a pass/fail vote rather than a structured adaptation conversation.",
+    reassurance: "The theatre is meant to reveal what would need to change, not embarrass an idea.",
+  },
+  {
+    plain: "We are turning scenarios into a living sensing system by tracking weak signals over time.",
+    why: "Weak signals help the group notice which future may be becoming more active before it is obvious.",
+    example: "Repeated urgent AI support requests may suggest automation is moving faster than staff capacity.",
+    good: ["Signals are linked to scenarios.", "Evidence and confidence are recorded.", "Review dates make monitoring actionable."],
+    trap: "Tracking vague anecdotes without evidence, owner or review cadence.",
+    reassurance: "Signals can be faint. The point is to watch their direction, not prove certainty.",
+  },
+  {
     plain: "We are turning the workshop into artefacts people can use after the room disperses.",
     why: "The value of the workshop depends on whether scenarios, signals and actions can be shared and revisited.",
     example: "Use the report for the record, the presentation summary for briefings and the signals dashboard for monitoring.",
@@ -169,7 +193,17 @@ const glossary = [
   ["Hedging action", "A low-cost action that preserves options while uncertainty remains."],
 ];
 
-const transformation = ["Setup", "Question", "Forces", "Clusters", "Extremes", "Axes", "Scenarios", "Storylines", "Critique", "Actions", "Export"];
+const transformation = ["Setup", "Question", "Forces", "Clusters", "Extremes", "Axes", "Scenarios", "Storylines", "Critique", "Actions", "Stress test", "Signals", "Export"];
+
+const stressActionTypes = ["Strategy", "Initiative", "Policy", "Service change", "Investment", "Pilot", "Stop doing", "Other"];
+const stressLabels = ["Strong fit", "Useful but adapt", "High risk", "Fragile", "Unclear", "Poor fit"];
+const stressClassifications = ["Robust", "Contingent", "Fragile", "High upside / high risk", "Worth piloting", "Monitor only", "Stop or avoid"];
+const stressRecommendations = ["Proceed now", "Proceed with adaptation", "Pilot first", "Hold and monitor", "Do not proceed"];
+const signalCategories = ["Staff behaviour", "Student behaviour", "Policy / regulation", "Technology", "Workload / capacity", "Service demand", "Financial / resourcing", "Risk / compliance", "Sector movement", "Stakeholder sentiment", "Other"];
+const signalStrengths = ["Not visible", "Faint", "Emerging", "Strong", "Critical"];
+const signalConfidences = ["Low", "Medium", "High"];
+const signalDirections = ["Increasing", "Stable", "Decreasing", "Unknown"];
+const reviewCadences = ["Weekly", "Fortnightly", "Monthly", "Quarterly", "Ad hoc"];
 
 let state = loadState() || createEmptyWorkshop();
 let draggedForceId = null;
@@ -211,6 +245,9 @@ function createEmptyWorkshop() {
     axes: { x: null, y: null },
     scenarios,
     actions: [],
+    stressTests: [],
+    weakSignals: [],
+    signalFilters: { scenario: "All", category: "All", strength: "All", confidence: "All", direction: "All", reviewDue: false, sort: "strongest" },
 	    parkingLot: [],
 	    decisionLog: [],
     implications: { start: "", stop: "", protect: "", monitor: "", decideNow: "", defer: "" },
@@ -317,6 +354,8 @@ function sampleWorkshop() {
     s.scenarios.forEach(sc => a.ratings[sc.id] = i === 2 ? "risky" : "useful");
     classifyAction(a);
   });
+  s.stressTests = sampleStressTests(s);
+  s.weakSignals = sampleWeakSignals(s);
   logDecision(s, "Loaded sample workshop context.");
   return s;
 }
@@ -342,6 +381,148 @@ function makeCluster(name = "New dynamic condition", forceIds = []) {
 
 function makeAction(title = "New strategic action", description = "") {
   return { id: uid("action"), title, description, owner: "", timeframe: "", effort: 2, confidence: 3, nextDecision: "", ratings: {}, classification: "Unclassified" };
+}
+
+function makeStressResult(scenarioId, overrides = {}) {
+  const result = {
+    scenarioId,
+    fitScore: 3,
+    riskScore: 3,
+    workloadBurden: 3,
+    confidence: 3,
+    strategicValue: 3,
+    reversibility: 3,
+    resultLabel: "",
+    whatHappens: "",
+    keyRisks: "",
+    adaptationNeeded: "",
+    conditionsForSuccess: "",
+    earlyWarningSignals: "",
+    notes: "",
+    ...overrides,
+  };
+  result.resultLabel = result.resultLabel || stressResultLabel(result);
+  return result;
+}
+
+function makeStressTest(actionTitle = "New strategy under test", actionDescription = "", scenarios = []) {
+  const test = {
+    id: uid("stress"),
+    actionTitle,
+    actionDescription,
+    actionType: "Strategy",
+    owner: "",
+    timeframe: "",
+    createdAt: new Date().toISOString(),
+    scenarioResults: scenarios.map(sc => makeStressResult(sc.id)),
+    overallClassification: "",
+    suggestedClassification: "Monitor only",
+    overallNotes: "",
+    adaptationSummary: "",
+    decisionRecommendation: "Hold and monitor",
+  };
+  updateStressTestClassification(test);
+  return test;
+}
+
+function makeWeakSignal(title = "New weak signal", scenarioIds = []) {
+  const today = new Date().toISOString().slice(0, 10);
+  return {
+    id: uid("signal"),
+    title,
+    description: "",
+    linkedScenarioIds: scenarioIds,
+    category: "Other",
+    currentStrength: "Faint",
+    confidence: "Medium",
+    direction: "Unknown",
+    evidence: "",
+    source: "",
+    owner: "",
+    reviewCadence: "Monthly",
+    lastReviewed: today,
+    nextReview: nextReviewDate(today, "Monthly"),
+    notes: "",
+    history: [],
+  };
+}
+
+function sampleStressTests(s) {
+  const byName = Object.fromEntries(s.scenarios.map(sc => [sc.name, sc.id]));
+  const hub = makeStressTest("Create a central AI teaching support hub", "Coordinate AI teaching support demand, governance, exemplars and triage across the institution.", s.scenarios);
+  hub.actionType = "Service change";
+  hub.owner = "Central learning support";
+  hub.timeframe = "2026-2027";
+  const examples = {
+    "Coordinated Acceleration": ["Strong fit", 5, 2, 3, 4, 5, 3, "Helps coordinate demand and turn confidence into usable service pathways.", "Scaling too slowly as adoption accelerates.", "Strong governance, faculty pathways and visible service boundaries.", "Clear executive sponsorship and practical faculty engagement.", "Enterprise AI tools enter formal teaching workflows."],
+    "Automation Without Absorption": ["Useful but adapt", 4, 4, 5, 3, 5, 3, "The hub becomes essential but risks being overwhelmed by urgent support demand.", "The hub becomes a bottleneck and absorbs every AI anxiety.", "Triage, self-service resources and explicit service boundaries.", "Demand management, reusable patterns and escalation rules.", "Urgent AI-related support requests increase."],
+    "Cautious Consolidation": ["Useful but adapt", 3, 3, 3, 3, 4, 4, "The hub is useful if framed as safe guidance rather than aggressive transformation.", "It may be perceived as premature or over-centralised.", "Position as low-risk experimentation, exemplars and policy interpretation.", "Trust-building with governance groups and faculties.", "Governance groups request clearer policy boundaries."],
+    "Exhausted Fragmentation": ["Fragile", 2, 4, 4, 2, 3, 3, "Staff may lack capacity to engage unless the hub offers immediate relief.", "Low uptake and reactive escalation.", "Reduce scope and focus on practical relief, triage and templates.", "Low-friction support offers and urgent workload relief.", "Workload comments intensify in staff feedback."],
+  };
+  hub.scenarioResults = s.scenarios.map(sc => {
+    const e = examples[sc.name] || ["Unclear", 3, 3, 3, 3, 3, 3, "", "", "", "", ""];
+    return makeStressResult(sc.id, { resultLabel: e[0], fitScore: e[1], riskScore: e[2], workloadBurden: e[3], confidence: e[4], strategicValue: e[5], reversibility: e[6], whatHappens: e[7], keyRisks: e[8], adaptationNeeded: e[9], conditionsForSuccess: e[10], earlyWarningSignals: e[11] });
+  });
+  updateStressTestClassification(hub);
+  const titles = [
+    "Shift from bespoke consultation to scalable self-service resources",
+    "Establish faculty partnership rhythms for digital teaching support",
+    "Build a triage model for learning technology support requests",
+    "Develop AI assessment exemplars and reusable patterns",
+  ];
+  const more = titles.map((title, i) => {
+    const test = makeStressTest(title, "Sample strategy prepared for portfolio comparison.", s.scenarios);
+    test.actionType = ["Service change", "Initiative", "Policy", "Pilot"][i];
+    test.scenarioResults = s.scenarios.map((sc, j) => makeStressResult(sc.id, {
+      fitScore: Math.max(2, 5 - ((i + j) % 3)),
+      riskScore: 2 + ((i + j) % 3),
+      workloadBurden: 2 + ((i + j + 1) % 3),
+      confidence: 3 + (j % 2),
+      strategicValue: 4,
+      reversibility: i === 3 ? 5 : 3,
+      whatHappens: "The action creates a clearer service response, but its fit depends on local capacity and confidence.",
+      keyRisks: "Uneven uptake, unclear ownership or support demand exceeding capacity.",
+      adaptationNeeded: "Scale the scope, clarify service boundaries and watch early demand signals.",
+      conditionsForSuccess: "Clear ownership, practical templates and disciplined triage.",
+      earlyWarningSignals: sc.fields.signs || "",
+    }));
+    updateStressTestClassification(test);
+    return test;
+  });
+  return [hub, ...more];
+}
+
+function sampleWeakSignals(s) {
+  const scenario = name => s.scenarios.find(sc => sc.name === name)?.id;
+  const rows = [
+    ["Enterprise AI tools are being adopted through formal teaching workflows.", ["Coordinated Acceleration"], "Technology", "Strong", "High", "Increasing"],
+    ["Faculties request shared exemplars rather than bespoke advice.", ["Coordinated Acceleration"], "Service demand", "Emerging", "Medium", "Increasing"],
+    ["Senior committees ask for evidence of scalable teaching improvement.", ["Coordinated Acceleration"], "Policy / regulation", "Emerging", "High", "Stable"],
+    ["Urgent AI-related support requests increase.", ["Automation Without Absorption"], "Service demand", "Strong", "High", "Increasing"],
+    ["Staff ask for \"just tell me what to do\" guidance.", ["Automation Without Absorption"], "Staff behaviour", "Emerging", "Medium", "Increasing"],
+    ["Support teams report repeated workload spikes.", ["Automation Without Absorption", "Exhausted Fragmentation"], "Workload / capacity", "Critical", "High", "Increasing"],
+    ["Local faculty guidance emerges independently.", ["Automation Without Absorption", "Exhausted Fragmentation"], "Sector movement", "Emerging", "Medium", "Increasing"],
+    ["Staff prefer low-risk pilots over large-scale change.", ["Cautious Consolidation"], "Staff behaviour", "Emerging", "Medium", "Stable"],
+    ["Governance groups request clearer policy boundaries.", ["Cautious Consolidation"], "Policy / regulation", "Strong", "High", "Stable"],
+    ["Course teams delay assessment redesign decisions.", ["Cautious Consolidation", "Exhausted Fragmentation"], "Workload / capacity", "Emerging", "Medium", "Increasing"],
+    ["Workload comments intensify in staff feedback.", ["Exhausted Fragmentation"], "Stakeholder sentiment", "Critical", "High", "Increasing"],
+    ["Teams duplicate guidance because central advice is unclear.", ["Exhausted Fragmentation"], "Service demand", "Strong", "Medium", "Increasing"],
+    ["Support requests are increasingly urgent and reactive.", ["Exhausted Fragmentation"], "Service demand", "Strong", "High", "Increasing"],
+    ["Staff disengage from optional professional learning.", ["Exhausted Fragmentation"], "Staff behaviour", "Emerging", "Medium", "Increasing"],
+  ];
+  return rows.map(([title, scenarioNames, category, strength, confidence, direction]) => {
+    const signal = makeWeakSignal(title, scenarioNames.map(scenario).filter(Boolean));
+    signal.category = category;
+    signal.currentStrength = strength;
+    signal.confidence = confidence;
+    signal.direction = direction;
+    signal.description = "Sample weak signal for monitoring scenario activation.";
+    signal.evidence = "Sample workshop evidence. Replace with live observations during review.";
+    signal.source = "Scenario Studio sample data";
+    signal.owner = "Strategy lead";
+    signal.history = [{ id: uid("history"), date: signal.lastReviewed, strength, confidence, direction, evidence: signal.evidence, notes: "Initial sample reading." }];
+    return signal;
+  });
 }
 
 function saveState() {
@@ -388,11 +569,27 @@ function migrateState(candidate) {
     classifyAction(action);
     return action;
   });
+  merged.stressTests = (candidate.stressTests || []).map(test => {
+    const hydrated = {
+      ...makeStressTest(test.actionTitle || "Strategy under test", test.actionDescription || "", stateSafeScenarios(merged)),
+      ...test,
+      scenarioResults: stateSafeScenarios(merged).map(sc => ({ ...makeStressResult(sc.id), ...(test.scenarioResults || []).find(r => r.scenarioId === sc.id) })),
+    };
+    hydrated.scenarioResults.forEach(r => { if (!r.resultLabel) r.resultLabel = stressResultLabel(r); });
+    updateStressTestClassification(hydrated);
+    return hydrated;
+  });
+  merged.weakSignals = (candidate.weakSignals || []).map(sig => ({ ...makeWeakSignal(sig.title || "Weak signal", sig.linkedScenarioIds || []), ...sig, history: sig.history || [] }));
+  merged.signalFilters = { ...base.signalFilters, ...(candidate.signalFilters || {}) };
   merged.parkingLot = (candidate.parkingLot || []).map(p => ({ category: "parking", ...p }));
   merged.implications = { ...base.implications, ...(candidate.implications || {}) };
   merged.minorityReports = candidate.minorityReports || [];
   merged.pairwise = { ...base.pairwise, ...(candidate.pairwise || {}) };
   return merged;
+}
+
+function stateSafeScenarios(targetState = state) {
+  return targetState.scenarios?.length ? targetState.scenarios : createEmptyWorkshop().scenarios;
 }
 
 function setState(mutator, options = {}) {
@@ -519,7 +716,9 @@ function renderCommandPalette() {
     ["Toggle room mode", "toggleRoom", ""],
     ["Start timer", "timerStart", ""],
     ["Load sample data", "loadSample", ""],
-    ["Export report", "commandStep", "11"],
+    ["Go to Stress-Test Theatre", "commandStep", "11"],
+    ["Go to Weak Signals Monitor", "commandStep", "12"],
+    ["Export report", "commandStep", "13"],
   ];
   return `
     <div class="command-backdrop no-print" data-action="toggleCommands">
@@ -536,7 +735,7 @@ function renderCommandPalette() {
 
 function renderTransformationMap() {
   if (!state.ui.guidedMode) return "";
-  const activeIndex = Math.min(transformation.length - 1, state.currentStep === 11 ? 10 : state.currentStep);
+  const activeIndex = Math.min(transformation.length - 1, state.currentStep);
   return `
     <section class="transformation-map no-print">
       ${transformation.map((label, i) => `<div class="${i <= activeIndex ? "active" : ""}"><span>${i + 1}</span><strong>${label}</strong></div>`).join("")}
@@ -598,6 +797,8 @@ function renderOutputStrip() {
       <div><span>Clusters</span><strong>${state.clusters.length}</strong></div>
       <div><span>Axes</span><strong>${escapeHtml(axes.join(" + ") || "Not selected")}</strong></div>
       <div><span>Robust actions</span><strong>${state.actions.filter(a => a.classification === "Robust action").length}</strong></div>
+      <div><span>Stress tests</span><strong>${state.stressTests.length}</strong></div>
+      <div><span>Signals</span><strong>${state.weakSignals.length}</strong></div>
       <div><span>Autosave</span><strong>${state.savedAt ? new Date(state.savedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Ready"}</strong></div>
     </section>
   `;
@@ -616,6 +817,8 @@ function renderDecisionGate() {
     ["Events form a causal chain.", "Acceleration, resistance and late signals have been discussed."],
     ["Critiques have been accepted, rejected, parked or edited in.", "Scenarios are distinct and plausible."],
     ["Actions have been tested across all scenarios.", "Start/stop/protect/monitor decisions are captured."],
+    ["Important strategies have been stress-tested.", "Adaptations and proceed/hold/stop recommendations are visible."],
+    ["Weak signals have owners, evidence and review dates.", "Scenario activation can be explained to colleagues."],
     ["The report has enough detail for people who were not in the room.", "Actions and signals are ready to share."],
   ][state.currentStep];
   return `
@@ -639,6 +842,8 @@ function outputTarget(step) {
     "Four causal timelines.",
     "Revised and strengthened scenarios.",
     "Prioritised strategic implications.",
+    "Stress-tested strategies with adaptation recommendations.",
+    "A living weak-signals monitor linked to scenarios.",
     "A printable report and exportable workshop data.",
   ][step];
 }
@@ -736,6 +941,8 @@ function renderQualityMeter() {
     state.scenarios.every(s => s.name && s.descriptor),
     state.scenarios.some(s => s.events.length),
     state.actions.length > 0,
+    state.stressTests.length > 0,
+    state.weakSignals.length > 0,
   ];
   const score = checks.filter(Boolean).length;
   const label = score >= 7 ? "Ready to share" : score >= 4 ? "Developing" : "Early build";
@@ -753,6 +960,8 @@ function qualityHint() {
   if (state.clusters.length < 2) return "Create at least two dynamic clusters.";
   if (!state.axes.x?.clusterId || !state.axes.y?.clusterId) return "Select two critical uncertainties for the matrix.";
   if (!state.actions.length) return "Add actions so the workshop turns into choices.";
+  if (!state.stressTests.length) return "Stress-test one important strategy before sharing.";
+  if (!state.weakSignals.length) return "Add weak signals so colleagues can monitor what is emerging.";
   return "The workshop has enough structure for a useful report.";
 }
 
@@ -769,6 +978,8 @@ function renderStep() {
     renderStorylines,
     renderCritique,
     renderStrategicImplications,
+    renderStressTestTheatre,
+    renderWeakSignalsMonitor,
     renderExport,
   ][state.currentStep]();
 }
@@ -792,6 +1003,8 @@ function renderRoomView() {
   if (state.currentStep === 6) return `<section class="room-board">${renderRoomCaption()}${renderScenarioMatrix()}</section>`;
   if (state.currentStep <= 9) return `<section class="room-board">${renderRoomCaption()}<h2>Scenario Set</h2><div class="grid four">${state.scenarios.map(s => `<article class="scenario-quadrant"><span class="badge">${escapeHtml(s.icon)}</span><h3>${escapeHtml(s.name)}</h3><p>${escapeHtml(s.descriptor)}</p><p><strong>Early signs:</strong> ${escapeHtml(s.fields.signs || "To be developed")}</p></article>`).join("")}</div></section>`;
   if (state.currentStep === 10) return `<section class="room-board">${renderRoomCaption()}<h2>Strategic Action Portfolio</h2>${renderActionPortfolio()}${renderSignalsDashboard()}</section>`;
+  if (state.currentStep === 11) return `<section class="room-board">${renderRoomCaption()}<h2>Strategy Under Test</h2>${renderStressPortfolio()}${renderStressHeatmap()}</section>`;
+  if (state.currentStep === 12) return `<section class="room-board">${renderRoomCaption()}<h2>Scenario Weather Map</h2>${renderScenarioWeatherMap()}${renderWeakSignalBoard(true)}</section>`;
   return `<section class="room-board">${renderRoomCaption()}${renderPresentationSummary()}</section>`;
 }
 
@@ -1357,6 +1570,318 @@ function classBadge(cls) {
   return "";
 }
 
+function activeStressTest() {
+  if (!state.ui.activeStressId || !state.stressTests.some(t => t.id === state.ui.activeStressId)) state.ui.activeStressId = state.stressTests[0]?.id;
+  return state.stressTests.find(t => t.id === state.ui.activeStressId);
+}
+
+function renderStressTestTheatre() {
+  const test = activeStressTest();
+  return `
+    <div class="grid">
+      <section class="theatre-hero">
+        <div>
+          <span class="badge green">Scenario Stress-Test Theatre</span>
+          <h3>Put one strategy under the lights.</h3>
+          <p>Ask how this action behaves in each future, what would need to change, and whether the recommendation should be proceed, pilot, hold or stop.</p>
+        </div>
+        <form data-form="stress" class="stress-create">
+          <select name="sourceAction">
+            <option value="">Start from blank strategy</option>
+            ${state.actions.map(a => `<option value="${a.id}">${escapeHtml(a.title)}</option>`).join("")}
+          </select>
+          <input name="title" placeholder="Strategy, initiative or decision to test">
+          <button class="btn green">Add stress test</button>
+        </form>
+      </section>
+      ${state.stressTests.length ? `
+        <div class="tabs">${state.stressTests.map(t => `<button class="tab ${t.id === test?.id ? "active" : ""}" data-action="activeStress" data-id="${t.id}">${escapeHtml(t.actionTitle)}</button>`).join("")}</div>
+        ${test ? renderStressTestEditor(test) : ""}
+        <section class="grid two">
+          ${renderStressPortfolio()}
+          ${renderStressHeatmap()}
+        </section>
+      ` : `<div class="empty">Add a strategy to test, or load sample data to demonstrate the theatre immediately.</div>`}
+    </div>
+  `;
+}
+
+function renderStressTestEditor(test) {
+  updateStressTestClassification(test);
+  return `
+    <section class="stress-stage">
+      <aside class="strategy-card">
+        <span class="badge ${classificationBadge(test.overallClassification)}">${escapeHtml(test.overallClassification || "Unclassified")}</span>
+        <label>Action title<textarea data-stress="${test.id}" data-field="actionTitle">${escapeHtml(test.actionTitle)}</textarea></label>
+        <label>Description<textarea data-stress="${test.id}" data-field="actionDescription">${escapeHtml(test.actionDescription || "")}</textarea></label>
+        <div class="grid two">
+          <label>Type<select data-stress-select="${test.id}" data-field="actionType">${stressActionTypes.map(v => `<option ${test.actionType === v ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+          <label>Timeframe<input data-stress="${test.id}" data-field="timeframe" value="${escapeHtml(test.timeframe || "")}"></label>
+          <label>Owner<input data-stress="${test.id}" data-field="owner" value="${escapeHtml(test.owner || "")}"></label>
+          <label>Recommendation<select data-stress-select="${test.id}" data-field="decisionRecommendation">${stressRecommendations.map(v => `<option ${test.decisionRecommendation === v ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+        </div>
+        <div class="suggestion-box">
+          <span class="badge blue">Transparent scoring</span>
+          <p>Suggested: <strong>${escapeHtml(test.suggestedClassification || "Monitor only")}</strong>. The facilitator can override this when the room has a better judgement.</p>
+        </div>
+        <label>Overall classification<select data-stress-select="${test.id}" data-field="overallClassification">${stressClassifications.map(v => `<option ${test.overallClassification === v ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+        <label>Adaptation summary<textarea data-stress="${test.id}" data-field="adaptationSummary">${escapeHtml(test.adaptationSummary || "")}</textarea></label>
+        <label>Overall notes<textarea data-stress="${test.id}" data-field="overallNotes">${escapeHtml(test.overallNotes || "")}</textarea></label>
+        <div class="inline-actions">
+          <button class="btn small" data-action="duplicateStress" data-id="${test.id}">Duplicate</button>
+          <button class="btn small danger" data-action="deleteStress" data-id="${test.id}">Delete</button>
+        </div>
+      </aside>
+      <div class="scenario-stress-grid">
+        ${state.scenarios.map(sc => renderStressScenarioPanel(test, test.scenarioResults.find(r => r.scenarioId === sc.id) || makeStressResult(sc.id), sc)).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderStressScenarioPanel(test, result, scenario) {
+  const viability = stressViability(result);
+  return `
+    <article class="stress-scenario-card">
+      <div class="inline-actions" style="justify-content:space-between">
+        <div>
+          <span class="badge">${escapeHtml(scenario.icon || "Scenario")}</span>
+          <h3>${escapeHtml(scenario.name)}</h3>
+        </div>
+        <span class="stress-score">${viability}</span>
+      </div>
+      <select data-stress-result-select="${test.id}" data-result="${result.scenarioId}" data-field="resultLabel">
+        ${stressLabels.map(v => `<option ${result.resultLabel === v ? "selected" : ""}>${v}</option>`).join("")}
+      </select>
+      ${[
+        ["fitScore", "Fit"],
+        ["riskScore", "Risk"],
+        ["workloadBurden", "Workload"],
+        ["confidence", "Confidence"],
+        ["strategicValue", "Strategic value"],
+        ["reversibility", "Reversibility"],
+      ].map(([field, label]) => `
+        <div class="score-row compact">
+          <span>${label}</span>
+          <input type="range" min="1" max="5" value="${Number(result[field] || 3)}" data-stress-range="${test.id}" data-result="${result.scenarioId}" data-field="${field}">
+          <strong>${Number(result[field] || 3)}</strong>
+        </div>
+      `).join("")}
+      ${[
+        ["whatHappens", "What happens in this scenario"],
+        ["keyRisks", "Key risks"],
+        ["adaptationNeeded", "Adaptation needed"],
+        ["conditionsForSuccess", "Conditions for success"],
+        ["earlyWarningSignals", "Early warning signals"],
+        ["notes", "Notes"],
+      ].map(([field, label]) => `<label>${label}<textarea data-stress-result="${test.id}" data-result="${result.scenarioId}" data-field="${field}">${escapeHtml(result[field] || "")}</textarea></label>`).join("")}
+    </article>
+  `;
+}
+
+function classificationBadge(classification = "") {
+  if (classification.includes("Robust") || classification.includes("Worth")) return "green";
+  if (classification.includes("Contingent") || classification.includes("Monitor")) return "blue";
+  if (classification.includes("risk")) return "gold";
+  if (classification.includes("Fragile") || classification.includes("Stop")) return "rose";
+  return "";
+}
+
+function renderStressPortfolio() {
+  const tests = state.stressTests || [];
+  return `
+    <section class="panel">
+      <div class="inline-actions" style="justify-content:space-between"><h3>Strategy Portfolio</h3><span class="badge">${tests.length} tests</span></div>
+      <div class="stress-portfolio">
+        ${stressClassifications.map(cls => `
+          <div class="portfolio-lane">
+            <strong>${escapeHtml(cls)}</strong>
+            ${tests.filter(t => t.overallClassification === cls).map(t => `<button class="portfolio-token ${classificationBadge(cls)}" data-action="activeStress" data-id="${t.id}">${escapeHtml(t.actionTitle)}</button>`).join("") || `<span class="empty-token">None</span>`}
+          </div>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderStressHeatmap() {
+  const tests = state.stressTests || [];
+  return `
+    <section class="panel">
+      <div class="inline-actions" style="justify-content:space-between"><h3>Scenario Fit Heatmap</h3><span class="badge gold">Fit minus risk/workload</span></div>
+      ${tests.length ? `<table class="heatmap-table">
+        <thead><tr><th>Strategy</th>${state.scenarios.map(sc => `<th>${escapeHtml(sc.name)}</th>`).join("")}</tr></thead>
+        <tbody>${tests.map(t => `<tr><td>${escapeHtml(t.actionTitle)}</td>${state.scenarios.map(sc => {
+          const result = t.scenarioResults.find(r => r.scenarioId === sc.id) || makeStressResult(sc.id);
+          const score = stressViability(result);
+          return `<td><button class="heat-cell ${score >= 4 ? "good" : score >= 2 ? "watch" : "risk"}" data-action="activeStress" data-id="${t.id}">${score}<span>${escapeHtml(result.resultLabel)}</span></button></td>`;
+        }).join("")}</tr>`).join("")}</tbody>
+      </table>` : `<div class="empty">No strategies tested yet.</div>`}
+    </section>
+  `;
+}
+
+function activeWeakSignal() {
+  if (!state.ui.activeSignalId || !state.weakSignals.some(sig => sig.id === state.ui.activeSignalId)) state.ui.activeSignalId = state.weakSignals[0]?.id;
+  return state.weakSignals.find(sig => sig.id === state.ui.activeSignalId);
+}
+
+function renderWeakSignalsMonitor() {
+  return `
+    <div class="grid">
+      <section class="signal-hero">
+        <div>
+          <span class="badge green">Weak Signals Monitor</span>
+          <h3>Turn scenarios into a living sensing system.</h3>
+          <p>Track faint evidence, review it on a cadence, and show which scenarios may be becoming more active.</p>
+        </div>
+        <div class="inline-actions">
+          <button class="btn green" data-action="importScenarioSignals">Import early signs from scenarios</button>
+          <button class="btn" data-action="addSignal">Add blank signal</button>
+        </div>
+      </section>
+      ${renderScenarioWeatherMap()}
+      <section class="grid aside">
+        <div>
+          ${renderSignalFilters()}
+          ${renderWeakSignalBoard(false)}
+        </div>
+        ${renderWeakSignalDetail(activeWeakSignal())}
+      </section>
+    </div>
+  `;
+}
+
+function renderScenarioWeatherMap() {
+  return `
+    <section class="panel">
+      <div class="inline-actions" style="justify-content:space-between"><h3>Scenario Weather Map</h3><span class="badge blue">Activation = signal strength x confidence x direction</span></div>
+      <div class="weather-grid">
+        ${state.scenarios.map(sc => {
+          const activation = scenarioActivation(sc.id);
+          return `<article class="weather-card ${activation.label.toLowerCase().replaceAll(" ", "-")}">
+            <div class="weather-ring" style="--activation:${activation.activationScore / 100}"><strong>${activation.activationScore}%</strong><span>${escapeHtml(activation.label)}</span></div>
+            <h3>${escapeHtml(sc.name)}</h3>
+            <p>${activation.signalCount} linked signals. ${escapeHtml(activation.confidenceSummary)}.</p>
+            <div>${activation.topSignals.map(sig => `<span class="signal-chip">${escapeHtml(sig.title)}</span>`).join("") || `<span class="signal-chip">No linked signals yet</span>`}</div>
+          </article>`;
+        }).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderSignalFilters() {
+  const f = state.signalFilters || {};
+  return `
+    <section class="panel no-print">
+      <div class="inline-actions signal-filters">
+        ${filterSelect("scenario", ["All", ...state.scenarios.map(sc => sc.id)], v => v === "All" ? "All scenarios" : state.scenarios.find(sc => sc.id === v)?.name || v)}
+        ${filterSelect("category", ["All", ...signalCategories])}
+        ${filterSelect("strength", ["All", ...signalStrengths])}
+        ${filterSelect("confidence", ["All", ...signalConfidences])}
+        ${filterSelect("direction", ["All", ...signalDirections])}
+        <label class="check-line compact"><input type="checkbox" data-signal-filter="reviewDue" ${f.reviewDue ? "checked" : ""}> Review due</label>
+        <select data-signal-filter="sort">
+          ${[["strongest", "Strongest first"], ["due", "Review due first"], ["newest", "Newest review"]].map(([value, label]) => `<option value="${value}" ${f.sort === value ? "selected" : ""}>${label}</option>`).join("")}
+        </select>
+      </div>
+    </section>
+  `;
+}
+
+function filterSelect(key, values, labeler = v => v) {
+  const current = state.signalFilters?.[key] || "All";
+  return `<select data-signal-filter="${key}">${values.map(v => `<option value="${escapeHtml(v)}" ${current === v ? "selected" : ""}>${escapeHtml(labeler(v))}</option>`).join("")}</select>`;
+}
+
+function filteredWeakSignals() {
+  const f = state.signalFilters || {};
+  const today = new Date().toISOString().slice(0, 10);
+  let signals = [...(state.weakSignals || [])].filter(sig => {
+    if (f.scenario && f.scenario !== "All" && !sig.linkedScenarioIds.includes(f.scenario)) return false;
+    if (f.category && f.category !== "All" && sig.category !== f.category) return false;
+    if (f.strength && f.strength !== "All" && sig.currentStrength !== f.strength) return false;
+    if (f.confidence && f.confidence !== "All" && sig.confidence !== f.confidence) return false;
+    if (f.direction && f.direction !== "All" && sig.direction !== f.direction) return false;
+    if (f.reviewDue && (!sig.nextReview || sig.nextReview > today)) return false;
+    return true;
+  });
+  if (f.sort === "due") signals.sort((a, b) => String(a.nextReview || "9999").localeCompare(String(b.nextReview || "9999")));
+  else if (f.sort === "newest") signals.sort((a, b) => String(b.lastReviewed).localeCompare(String(a.lastReviewed)));
+  else signals.sort((a, b) => signalStrengthValue(b.currentStrength) - signalStrengthValue(a.currentStrength));
+  return signals;
+}
+
+function renderWeakSignalBoard(compact = false) {
+  const signals = compact ? state.weakSignals.slice(0, 6) : filteredWeakSignals();
+  return `
+    <section class="signal-board">
+      ${signals.length ? signals.map(sig => `
+        <article class="signal-card rich ${sig.id === state.ui.activeSignalId ? "active" : ""}">
+          <button class="signal-open" data-action="activeSignal" data-id="${sig.id}">
+            <span class="badge ${signalBadge(sig.currentStrength)}">${escapeHtml(sig.currentStrength)}</span>
+            <h3>${escapeHtml(sig.title)}</h3>
+            <p>${escapeHtml(sig.description || sig.evidence || "No description captured yet.")}</p>
+          </button>
+          <div class="signal-meta">
+            <span>${escapeHtml(sig.category)}</span>
+            <span>${escapeHtml(sig.confidence)} confidence</span>
+            <span>${escapeHtml(sig.direction)}</span>
+            <span>Review ${escapeHtml(sig.nextReview || "ad hoc")}</span>
+          </div>
+        </article>
+      `).join("") : `<div class="empty">No signals match the current filters.</div>`}
+    </section>
+  `;
+}
+
+function signalBadge(strength) {
+  if (strength === "Critical" || strength === "Strong") return "rose";
+  if (strength === "Emerging") return "gold";
+  if (strength === "Faint") return "blue";
+  return "";
+}
+
+function renderWeakSignalDetail(sig) {
+  if (!sig) return `<section class="panel"><div class="empty">Select or add a signal to edit its evidence, owner and review history.</div></section>`;
+  return `
+    <section class="panel signal-detail">
+      <div class="inline-actions" style="justify-content:space-between">
+        <h3>Signal Detail</h3>
+        <div><button class="btn small" data-action="duplicateSignal" data-id="${sig.id}">Duplicate</button><button class="btn small danger" data-action="deleteSignal" data-id="${sig.id}">Delete</button></div>
+      </div>
+      <label>Title<textarea data-signal="${sig.id}" data-field="title">${escapeHtml(sig.title)}</textarea></label>
+      <label>Description<textarea data-signal="${sig.id}" data-field="description">${escapeHtml(sig.description || "")}</textarea></label>
+      <div class="grid two">
+        <label>Category<select data-signal-select="${sig.id}" data-field="category">${signalCategories.map(v => `<option ${sig.category === v ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+        <label>Strength<select data-signal-select="${sig.id}" data-field="currentStrength">${signalStrengths.map(v => `<option ${sig.currentStrength === v ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+        <label>Confidence<select data-signal-select="${sig.id}" data-field="confidence">${signalConfidences.map(v => `<option ${sig.confidence === v ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+        <label>Direction<select data-signal-select="${sig.id}" data-field="direction">${signalDirections.map(v => `<option ${sig.direction === v ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+        <label>Owner<input data-signal="${sig.id}" data-field="owner" value="${escapeHtml(sig.owner || "")}"></label>
+        <label>Cadence<select data-signal-select="${sig.id}" data-field="reviewCadence">${reviewCadences.map(v => `<option ${sig.reviewCadence === v ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+        <label>Last reviewed<input type="date" data-signal="${sig.id}" data-field="lastReviewed" value="${escapeHtml(sig.lastReviewed || "")}"></label>
+        <label>Next review<input type="date" data-signal="${sig.id}" data-field="nextReview" value="${escapeHtml(sig.nextReview || "")}"></label>
+      </div>
+      <label>Evidence<textarea data-signal="${sig.id}" data-field="evidence">${escapeHtml(sig.evidence || "")}</textarea></label>
+      <label>Source<input data-signal="${sig.id}" data-field="source" value="${escapeHtml(sig.source || "")}"></label>
+      <label>Notes<textarea data-signal="${sig.id}" data-field="notes">${escapeHtml(sig.notes || "")}</textarea></label>
+      <div class="scenario-link-list">
+        <strong>Linked scenarios</strong>
+        ${state.scenarios.map(sc => `<label class="check-line compact"><input type="checkbox" data-signal-link="${sig.id}" data-scenario="${sc.id}" ${sig.linkedScenarioIds.includes(sc.id) ? "checked" : ""}> ${escapeHtml(sc.name)}</label>`).join("")}
+      </div>
+      <form data-form="signalHistory" data-id="${sig.id}" class="history-form">
+        <textarea name="evidence" placeholder="What changed since the last review?"></textarea>
+        <input name="notes" placeholder="Review note">
+        <button class="btn green small">Add update</button>
+      </form>
+      <div class="history-list">
+        ${sig.history.length ? sig.history.map(h => `<div class="log-entry"><time>${escapeHtml(h.date)}</time><strong>${escapeHtml(h.strength)} / ${escapeHtml(h.confidence)} / ${escapeHtml(h.direction)}</strong><br>${escapeHtml(h.evidence || "")}<br>${escapeHtml(h.notes || "")}</div>`).join("") : `<div class="empty">No review history yet.</div>`}
+      </div>
+    </section>
+  `;
+}
+
 function renderExport() {
   const view = state.ui.exportView || "report";
   return `
@@ -1376,6 +1901,8 @@ function renderExport() {
             ["presentation", "Presentation Summary"],
             ["recap", "Workshop Recap"],
             ["signals", "Signals Dashboard"],
+            ["stress", "Stress Tests"],
+            ["weakSignals", "Weak Signals"],
             ["portfolio", "Action Portfolio"],
             ["constellation", "Force Constellation"],
           ].map(([key, label]) => `<button class="tab ${view === key ? "active" : ""}" data-action="setExportView" data-view="${key}">${label}</button>`).join("")}
@@ -1390,6 +1917,8 @@ function renderExportView(view) {
   if (view === "presentation") return renderPresentationSummary();
   if (view === "recap") return renderWorkshopRecap();
   if (view === "signals") return renderSignalsDashboard();
+  if (view === "stress") return `${renderStressPortfolio()}${renderStressHeatmap()}${renderStressReport()}`;
+  if (view === "weakSignals") return `${renderScenarioWeatherMap()}${renderWeakSignalReport()}`;
   if (view === "portfolio") return renderActionPortfolio();
   if (view === "constellation") return renderForceConstellation();
   return reportHtml();
@@ -1402,6 +1931,8 @@ function renderPresentationSummary() {
       <section class="slide-card"><span class="badge blue">2</span><h2>Critical Uncertainties</h2><p>${escapeHtml(clusterById(state.axes.x?.clusterId)?.name || "Horizontal axis")} / ${escapeHtml(clusterById(state.axes.y?.clusterId)?.name || "Vertical axis")}</p></section>
       <section class="slide-card"><span class="badge gold">3</span><h2>Scenario Matrix</h2><div class="grid four">${state.scenarios.map(s => `<div class="mini-panel"><h3>${escapeHtml(s.name)}</h3><p>${escapeHtml(s.descriptor)}</p></div>`).join("")}</div></section>
       <section class="slide-card"><span class="badge rose">4</span><h2>Strategic Choices</h2>${renderActionPortfolio()}</section>
+      <section class="slide-card"><span class="badge green">5</span><h2>Stress-Tested Strategies</h2>${renderStressHeatmap()}</section>
+      <section class="slide-card"><span class="badge blue">6</span><h2>Signals to Watch</h2>${renderScenarioWeatherMap()}</section>
     </div>
   `;
 }
@@ -1468,6 +1999,44 @@ function renderForceConstellation() {
   `;
 }
 
+function renderStressReport() {
+  return `
+    <section class="panel">
+      <h2>Stress-Test Theatre Notes</h2>
+      ${state.stressTests.length ? state.stressTests.map(test => `
+        <article class="report-block">
+          <h3>${escapeHtml(test.actionTitle)}</h3>
+          <p><strong>Classification:</strong> ${escapeHtml(test.overallClassification || "Unclassified")} | <strong>Recommendation:</strong> ${escapeHtml(test.decisionRecommendation || "")}</p>
+          <p>${escapeHtml(test.actionDescription || "")}</p>
+          <p><strong>Adaptation summary:</strong> ${escapeHtml(test.adaptationSummary || "Not captured.")}</p>
+          <div class="grid two">${state.scenarios.map(sc => {
+            const result = test.scenarioResults.find(r => r.scenarioId === sc.id) || makeStressResult(sc.id);
+            return `<div class="mini-panel"><h4>${escapeHtml(sc.name)}</h4><p><strong>${escapeHtml(result.resultLabel)}</strong> (${stressViability(result)}/5 viability)</p><p>${escapeHtml(result.whatHappens || "")}</p><p><em>Adaptation:</em> ${escapeHtml(result.adaptationNeeded || "None captured.")}</p><p><em>Signals:</em> ${escapeHtml(result.earlyWarningSignals || "None captured.")}</p></div>`;
+          }).join("")}</div>
+        </article>
+      `).join("") : `<div class="empty">No stress tests captured.</div>`}
+    </section>
+  `;
+}
+
+function renderWeakSignalReport() {
+  return `
+    <section class="panel">
+      <h2>Weak Signals Monitor</h2>
+      ${state.weakSignals.length ? `<table class="testing-table"><thead><tr><th>Signal</th><th>Linked scenarios</th><th>Strength</th><th>Confidence</th><th>Direction</th><th>Owner / review</th></tr></thead><tbody>
+        ${state.weakSignals.map(sig => `<tr>
+          <td><strong>${escapeHtml(sig.title)}</strong><br>${escapeHtml(sig.evidence || sig.description || "")}</td>
+          <td>${sig.linkedScenarioIds.map(id => state.scenarios.find(sc => sc.id === id)?.name).filter(Boolean).map(escapeHtml).join(", ") || "Unlinked"}</td>
+          <td>${escapeHtml(sig.currentStrength)}</td>
+          <td>${escapeHtml(sig.confidence)}</td>
+          <td>${escapeHtml(sig.direction)}</td>
+          <td>${escapeHtml(sig.owner || "TBC")}<br>${escapeHtml(sig.nextReview || "Ad hoc")}</td>
+        </tr>`).join("")}
+      </tbody></table>` : `<div class="empty">No weak signals captured.</div>`}
+    </section>
+  `;
+}
+
 function reportHtml() {
   const selected = selectedQuestion();
   const robustGroups = ["Robust action", "Contingent action", "Hedging action", "Fragile action", "Stop / avoid"];
@@ -1486,6 +2055,8 @@ function reportHtml() {
     <h2>Scenario Matrix and Narratives</h2>${state.scenarios.map(s => `<h3>${escapeHtml(s.name)}</h3><p>${escapeHtml(s.descriptor || "")}</p><p><strong>World feel:</strong> ${escapeHtml(s.fields.feel || "")}</p><p><strong>Changed:</strong> ${escapeHtml(s.fields.changed || "")}</p><p><strong>Risks:</strong> ${escapeHtml(s.fields.risks || "")}</p><p><strong>Opportunities:</strong> ${escapeHtml(s.fields.opportunities || "")}</p><p><strong>Early warning indicators:</strong> ${escapeHtml(s.fields.signs || "")}</p><ul>${s.events.map(e => `<li>${escapeHtml(e.year)}: ${escapeHtml(e.title)} - ${escapeHtml(e.description)}<br><em>Cause:</em> ${escapeHtml(e.cause || "")}<br><em>Consequence:</em> ${escapeHtml(e.consequence || "")}<br><em>Signal:</em> ${escapeHtml(e.signal || "")}</li>`).join("")}</ul><p><strong>Critique notes:</strong> ${s.critiques.map(c => `${c.status}: ${c.text}`).map(escapeHtml).join("; ") || "None captured."}</p>`).join("")}
     <h2>Action Testing Matrix</h2><table><thead><tr><th>Action</th>${state.scenarios.map(s => `<th>${escapeHtml(s.name)}</th>`).join("")}<th>Classification</th></tr></thead><tbody>${state.actions.map(a => `<tr><td>${escapeHtml(a.title)}</td>${state.scenarios.map(s => `<td>${escapeHtml(a.ratings[s.id] || "uncertain")}</td>`).join("")}<td>${escapeHtml(a.classification)}</td></tr>`).join("")}</tbody></table>
     <h2>Strategic Implications</h2><p><strong>Start:</strong> ${escapeHtml(state.implications?.start || "")}</p><p><strong>Stop:</strong> ${escapeHtml(state.implications?.stop || "")}</p><p><strong>Protect:</strong> ${escapeHtml(state.implications?.protect || "")}</p><p><strong>Monitor:</strong> ${escapeHtml(state.implications?.monitor || "")}</p><p><strong>Decide now:</strong> ${escapeHtml(state.implications?.decideNow || "")}</p><p><strong>Defer:</strong> ${escapeHtml(state.implications?.defer || "")}</p>${robustGroups.map(g => `<h3>${g}</h3><ul>${state.actions.filter(a => a.classification === g).map(a => `<li>${escapeHtml(a.title)} - ${escapeHtml(a.description)}<br>Owner: ${escapeHtml(a.owner || "TBC")} | Timeframe: ${escapeHtml(a.timeframe || "TBC")} | Next decision: ${escapeHtml(a.nextDecision || "TBC")}</li>`).join("") || "<li>None captured.</li>"}</ul>`).join("")}
+    <h2>Scenario Stress Tests</h2>${state.stressTests.map(test => `<h3>${escapeHtml(test.actionTitle)}</h3><p><strong>${escapeHtml(test.overallClassification || "Unclassified")}:</strong> ${escapeHtml(test.decisionRecommendation || "")}</p><p>${escapeHtml(test.adaptationSummary || test.overallNotes || "")}</p><ul>${state.scenarios.map(sc => { const result = test.scenarioResults.find(r => r.scenarioId === sc.id) || makeStressResult(sc.id); return `<li><strong>${escapeHtml(sc.name)}:</strong> ${escapeHtml(result.resultLabel)}. ${escapeHtml(result.whatHappens || "")} <em>Adaptation:</em> ${escapeHtml(result.adaptationNeeded || "")}</li>`; }).join("")}</ul>`).join("") || "<p>No stress tests captured.</p>"}
+    <h2>Weak Signals Monitor</h2>${state.scenarios.map(sc => { const activation = scenarioActivation(sc.id); return `<h3>${escapeHtml(sc.name)}: ${activation.activationScore}% ${escapeHtml(activation.label)}</h3><ul>${state.weakSignals.filter(sig => sig.linkedScenarioIds.includes(sc.id)).map(sig => `<li><strong>${escapeHtml(sig.title)}</strong> - ${escapeHtml(sig.currentStrength)}, ${escapeHtml(sig.confidence)} confidence, ${escapeHtml(sig.direction)}. Evidence: ${escapeHtml(sig.evidence || "")}. Next review: ${escapeHtml(sig.nextReview || "Ad hoc")}</li>`).join("") || "<li>No linked signals.</li>"}</ul>`; }).join("")}
     <h2>Minority Reports</h2><ul>${state.minorityReports.map(m => `<li>${escapeHtml(m.text)}</li>`).join("") || "<li>None captured.</li>"}</ul>
     <h2>Parking Lot</h2><ul>${state.parkingLot.map(p => `<li>${escapeHtml(p.text)}</li>`).join("")}</ul>
     <h2>Decision Log</h2><ul>${state.decisionLog.map(d => `<li>${new Date(d.createdAt).toLocaleString()}: ${escapeHtml(d.text)}</li>`).join("")}</ul>
@@ -1545,6 +2116,33 @@ function handleClick(e) {
   if (action === "deleteEvent") return setState(s => s.scenarios.forEach(sc => sc.events = sc.events.filter(ev => ev.id !== id)));
   if (action === "deleteCritique") return setState(s => { const sc = s.scenarios.find(x => x.id === btn.dataset.scenario); if (sc) sc.critiques = sc.critiques.filter(n => n.id !== id); });
   if (action === "deleteAction") return setState(s => { s.actions = s.actions.filter(a => a.id !== id); });
+  if (action === "activeStress") return setState(s => { s.ui.activeStressId = id; }, { undo: false });
+  if (action === "duplicateStress") return setState(s => {
+    const original = s.stressTests.find(t => t.id === id);
+    if (original) {
+      const copy = JSON.parse(JSON.stringify(original));
+      copy.id = uid("stress");
+      copy.actionTitle = `${copy.actionTitle} copy`;
+      copy.createdAt = new Date().toISOString();
+      s.stressTests.push(copy);
+      s.ui.activeStressId = copy.id;
+    }
+  });
+  if (action === "deleteStress") return setState(s => { s.stressTests = s.stressTests.filter(t => t.id !== id); s.ui.activeStressId = s.stressTests[0]?.id; });
+  if (action === "activeSignal") return setState(s => { s.ui.activeSignalId = id; }, { undo: false });
+  if (action === "addSignal") return setState(s => { const sig = makeWeakSignal("New weak signal", []); s.weakSignals.unshift(sig); s.ui.activeSignalId = sig.id; });
+  if (action === "duplicateSignal") return setState(s => {
+    const original = s.weakSignals.find(sig => sig.id === id);
+    if (original) {
+      const copy = JSON.parse(JSON.stringify(original));
+      copy.id = uid("signal");
+      copy.title = `${copy.title} copy`;
+      s.weakSignals.unshift(copy);
+      s.ui.activeSignalId = copy.id;
+    }
+  });
+  if (action === "deleteSignal") return setState(s => { s.weakSignals = s.weakSignals.filter(sig => sig.id !== id); s.ui.activeSignalId = s.weakSignals[0]?.id; });
+  if (action === "importScenarioSignals") return setState(s => importScenarioSignals(s));
   if (action === "deleteParking") return setState(s => { s.parkingLot = s.parkingLot.filter(p => p.id !== id); });
   if (action === "timerStart") return startTimer();
   if (action === "timerReset") return resetTimer();
@@ -1571,6 +2169,28 @@ function handleInput(e) {
   if (el.dataset.actionRange) return setState(s => { const a = s.actions.find(a => a.id === el.dataset.actionRange); if (a) { a[el.dataset.field] = Number(el.value); classifyAction(a); } });
   if (el.dataset.implication) return updateQuietly(s => { s.implications ||= {}; s.implications[el.dataset.implication] = el.value; });
   if (el.dataset.axisEndpoint) return updateQuietly(s => { s.axes[el.dataset.axisEndpoint] ||= {}; s.axes[el.dataset.axisEndpoint][el.dataset.field] = el.value; s.axes[el.dataset.axisEndpoint].sync = false; });
+  if (el.dataset.stress) return updateQuietly(s => { const t = s.stressTests.find(t => t.id === el.dataset.stress); if (t) t[el.dataset.field] = el.value; });
+  if (el.dataset.stressResult) return updateQuietly(s => {
+    const t = s.stressTests.find(t => t.id === el.dataset.stressResult);
+    const r = t?.scenarioResults.find(r => r.scenarioId === el.dataset.result);
+    if (r) r[el.dataset.field] = el.value;
+  });
+  if (el.dataset.stressRange) return setState(s => {
+    const t = s.stressTests.find(t => t.id === el.dataset.stressRange);
+    const r = t?.scenarioResults.find(r => r.scenarioId === el.dataset.result);
+    if (r) {
+      r[el.dataset.field] = Number(el.value);
+      r.resultLabel = stressResultLabel(r);
+      updateStressTestClassification(t);
+    }
+  });
+  if (el.dataset.signal) return updateQuietly(s => {
+    const sig = s.weakSignals.find(sig => sig.id === el.dataset.signal);
+    if (sig) {
+      sig[el.dataset.field] = el.value;
+      if (el.dataset.field === "lastReviewed") sig.nextReview = nextReviewDate(sig.lastReviewed, sig.reviewCadence);
+    }
+  });
 }
 
 function updateQuietly(mutator) {
@@ -1594,6 +2214,40 @@ function handleChange(e) {
     const sc = s.scenarios.find(sc => sc.id === el.dataset.critiqueStatus);
     const n = sc?.critiques.find(n => n.id === el.dataset.id);
     if (n) n.status = el.value;
+  });
+  if (el.dataset.stressSelect) return setState(s => {
+    const t = s.stressTests.find(t => t.id === el.dataset.stressSelect);
+    if (t) {
+      t[el.dataset.field] = el.value;
+      if (el.dataset.field === "overallClassification") t.decisionRecommendation = recommendationForClassification(el.value);
+      updateStressTestClassification(t);
+      logDecision(s, `Stress-tested "${t.actionTitle}" as ${t.overallClassification}.`);
+    }
+  });
+  if (el.dataset.stressResultSelect) return setState(s => {
+    const t = s.stressTests.find(t => t.id === el.dataset.stressResultSelect);
+    const r = t?.scenarioResults.find(r => r.scenarioId === el.dataset.result);
+    if (r) {
+      r[el.dataset.field] = el.value;
+      updateStressTestClassification(t);
+    }
+  });
+  if (el.dataset.signalSelect) return setState(s => {
+    const sig = s.weakSignals.find(sig => sig.id === el.dataset.signalSelect);
+    if (sig) {
+      sig[el.dataset.field] = el.value;
+      if (el.dataset.field === "reviewCadence") sig.nextReview = nextReviewDate(sig.lastReviewed, sig.reviewCadence);
+    }
+  });
+  if (el.dataset.signalFilter) return setState(s => {
+    s.signalFilters ||= {};
+    s.signalFilters[el.dataset.signalFilter] = el.type === "checkbox" ? el.checked : el.value;
+  }, { undo: false });
+  if (el.dataset.signalLink) return setState(s => {
+    const sig = s.weakSignals.find(sig => sig.id === el.dataset.signalLink);
+    if (!sig) return;
+    if (el.checked && !sig.linkedScenarioIds.includes(el.dataset.scenario)) sig.linkedScenarioIds.push(el.dataset.scenario);
+    if (!el.checked) sig.linkedScenarioIds = sig.linkedScenarioIds.filter(id => id !== el.dataset.scenario);
   });
 }
 
@@ -1626,6 +2280,31 @@ function handleSubmit(e) {
       s.scenarios.forEach(sc => a.ratings[sc.id] = "uncertain");
       classifyAction(a);
       s.actions.push(a);
+    });
+  }
+  if (form.dataset.form === "stress") {
+    setState(s => {
+      const source = s.actions.find(a => a.id === data.sourceAction);
+      const title = data.title || source?.title || "New strategy under test";
+      const test = makeStressTest(title, source?.description || "", s.scenarios);
+      if (source) {
+        test.owner = source.owner || "";
+        test.timeframe = source.timeframe || "";
+      }
+      s.stressTests.push(test);
+      s.ui.activeStressId = test.id;
+      logDecision(s, `Added strategy stress test: ${test.actionTitle}.`);
+    });
+  }
+  if (form.dataset.form === "signalHistory") {
+    setState(s => {
+      const sig = s.weakSignals.find(sig => sig.id === form.dataset.id);
+      if (sig) {
+        const today = new Date().toISOString().slice(0, 10);
+        sig.lastReviewed = today;
+        sig.nextReview = nextReviewDate(today, sig.reviewCadence);
+        sig.history.unshift({ id: uid("history"), date: today, strength: sig.currentStrength, confidence: sig.confidence, direction: sig.direction, evidence: data.evidence || sig.evidence || "", notes: data.notes || "" });
+      }
     });
   }
   form.reset();
@@ -1799,6 +2478,137 @@ function classifyAction(a) {
   else if (bad >= 1 || useful === 1) a.classification = "Fragile action";
   else if (neutral >= 3) a.classification = "Hedging action";
   else a.classification = "Unclassified";
+}
+
+function stressViability(result) {
+  const raw = Number(result.fitScore || 0) + Number(result.strategicValue || 0) + Number(result.reversibility || 0) + Number(result.confidence || 0) - Number(result.riskScore || 0) - Number(result.workloadBurden || 0);
+  return Math.max(1, Math.min(5, Math.round(((raw + 6) / 24) * 4 + 1)));
+}
+
+function stressResultLabel(result) {
+  const viability = stressViability(result);
+  if (result.riskScore >= 4 && result.strategicValue >= 4) return "High risk";
+  if (viability >= 4) return "Strong fit";
+  if (viability >= 3) return "Useful but adapt";
+  if (viability >= 2) return "Unclear";
+  if (result.fitScore <= 2 && result.riskScore >= 4) return "Poor fit";
+  return "Fragile";
+}
+
+function updateStressTestClassification(test) {
+  const labels = test.scenarioResults.map(r => r.resultLabel);
+  const strongOrUseful = labels.filter(l => l === "Strong fit" || l === "Useful but adapt").length;
+  const highRisk = test.scenarioResults.filter(r => r.resultLabel === "High risk" || r.riskScore >= 4).length;
+  const poor = labels.filter(l => l === "Poor fit" || l === "Fragile").length;
+  const avgValue = average(test.scenarioResults.map(r => r.strategicValue));
+  const avgRisk = average(test.scenarioResults.map(r => r.riskScore));
+  const avgReversibility = average(test.scenarioResults.map(r => r.reversibility));
+  const avgConfidence = average(test.scenarioResults.map(r => r.confidence));
+  let suggested = "Monitor only";
+  if (poor >= 3 || highRisk >= 3 && strongOrUseful <= 1) suggested = "Stop or avoid";
+  else if (strongOrUseful >= 3 && highRisk <= 1) suggested = "Robust";
+  else if (avgValue >= 4 && avgRisk >= 4) suggested = "High upside / high risk";
+  else if (strongOrUseful >= 1 && strongOrUseful <= 2 && poor >= 1) suggested = "Contingent";
+  else if (avgReversibility >= 4 && avgConfidence >= 2.5) suggested = "Worth piloting";
+  else if (poor >= 2) suggested = "Fragile";
+  test.suggestedClassification = suggested;
+  if (!test.overallClassification || stressClassifications.includes(test.overallClassification) === false) test.overallClassification = suggested;
+  test.decisionRecommendation ||= recommendationForClassification(test.overallClassification);
+  return test;
+}
+
+function recommendationForClassification(classification) {
+  return ({
+    "Robust": "Proceed now",
+    "Contingent": "Proceed with adaptation",
+    "Fragile": "Hold and monitor",
+    "High upside / high risk": "Pilot first",
+    "Worth piloting": "Pilot first",
+    "Monitor only": "Hold and monitor",
+    "Stop or avoid": "Do not proceed",
+  })[classification] || "Hold and monitor";
+}
+
+function average(values) {
+  const nums = values.map(Number).filter(n => Number.isFinite(n));
+  return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : 0;
+}
+
+function signalStrengthValue(strength) {
+  return ({ "Not visible": 0, "Faint": 1, "Emerging": 2, "Strong": 3, "Critical": 4 })[strength] ?? 0;
+}
+
+function signalConfidenceWeight(confidence) {
+  return ({ Low: 0.6, Medium: 0.8, High: 1.0 })[confidence] ?? 0.8;
+}
+
+function signalDirectionModifier(direction) {
+  return ({ Increasing: 0.2, Stable: 0, Decreasing: -0.2, Unknown: 0 })[direction] ?? 0;
+}
+
+function scenarioActivation(scenarioId) {
+  const linked = state.weakSignals.filter(sig => sig.linkedScenarioIds.includes(scenarioId));
+  if (!linked.length) return { scenarioId, activationScore: 0, label: "Dormant", signalCount: 0, criticalSignalCount: 0, emergingOrAboveCount: 0, confidenceSummary: "No signals", topSignals: [], strongestSignal: null, recent: "" };
+  const weighted = linked.map(sig => Math.max(0, signalStrengthValue(sig.currentStrength) + signalDirectionModifier(sig.direction)) * signalConfidenceWeight(sig.confidence));
+  const score = Math.round((average(weighted) / 4.2) * 100);
+  const criticalSignalCount = linked.filter(sig => sig.currentStrength === "Critical").length;
+  const emergingOrAboveCount = linked.filter(sig => signalStrengthValue(sig.currentStrength) >= 2).length;
+  const topSignals = [...linked].sort((a, b) => signalStrengthValue(b.currentStrength) - signalStrengthValue(a.currentStrength)).slice(0, 3);
+  const recent = [...linked].sort((a, b) => String(b.lastReviewed).localeCompare(String(a.lastReviewed)))[0]?.lastReviewed || "";
+  return {
+    scenarioId,
+    activationScore: Math.max(0, Math.min(100, score)),
+    label: activationLabel(score),
+    signalCount: linked.length,
+    criticalSignalCount,
+    emergingOrAboveCount,
+    confidenceSummary: `${linked.filter(s => s.confidence === "High").length} high-confidence signals`,
+    topSignals,
+    strongestSignal: topSignals[0],
+    recent,
+  };
+}
+
+function activationLabel(score) {
+  if (score <= 20) return "Dormant";
+  if (score <= 40) return "Faint";
+  if (score <= 60) return "Emerging";
+  if (score <= 80) return "Active";
+  return "Highly active";
+}
+
+function nextReviewDate(start, cadence) {
+  const date = start ? new Date(start) : new Date();
+  const days = ({ Weekly: 7, Fortnightly: 14, Monthly: 30, Quarterly: 90, "Ad hoc": 0 })[cadence] ?? 30;
+  if (!days) return "";
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function importScenarioSignals(targetState) {
+  const existing = new Set(targetState.weakSignals.map(sig => `${sig.title}|${sig.linkedScenarioIds.join(",")}`));
+  let added = 0;
+  targetState.scenarios.forEach(sc => {
+    const candidates = [
+      sc.fields.signs,
+      ...sc.events.map(event => event.signal).filter(Boolean),
+    ].filter(Boolean);
+    candidates.forEach(text => {
+      text.split(/\n|;/).map(v => v.trim()).filter(Boolean).forEach(line => {
+        const key = `${line}|${sc.id}`;
+        if (existing.has(key)) return;
+        const sig = makeWeakSignal(line, [sc.id]);
+        sig.category = "Service demand";
+        sig.description = `Imported from ${sc.name}.`;
+        sig.evidence = line;
+        targetState.weakSignals.unshift(sig);
+        existing.add(key);
+        added += 1;
+      });
+    });
+  });
+  if (targetState.weakSignals[0]) targetState.ui.activeSignalId = targetState.weakSignals[0].id;
+  logDecision(targetState, added ? `Imported ${added} early warning indicators into the weak signals monitor.` : "Checked scenario early warning indicators; no new signals to import.");
 }
 
 function downloadJson() {
