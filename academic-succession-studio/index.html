@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Academic Succession Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.umd.js"></script>
+    <style>
+      :root {
+        color-scheme: dark;
+        --ink: #f8fafc;
+        --muted: #a8b3c7;
+        --line: rgba(255, 255, 255, .13);
+        --panel: rgba(13, 18, 31, .78);
+        --panel-2: rgba(255, 255, 255, .075);
+        --cyan: #62d6d6;
+        --gold: #f3c766;
+        --coral: #ff8f70;
+        --leaf: #7bd88f;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at 11% 8%, rgba(98, 214, 214, .22), transparent 27%),
+          radial-gradient(circle at 84% 12%, rgba(243, 199, 102, .16), transparent 29%),
+          linear-gradient(135deg, #06111c 0%, #141827 43%, #241421 100%);
+        color: var(--ink);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      button, input, textarea, select { font: inherit; }
+      .glass { background: var(--panel); border: 1px solid var(--line); box-shadow: 0 24px 80px rgba(0, 0, 0, .28); backdrop-filter: blur(18px); }
+      .soft { background: var(--panel-2); border: 1px solid var(--line); }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .grid-bg {
+        background-image:
+          linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+        background-size: 38px 38px;
+      }
+      .cap-card { cursor: grab; }
+      .cap-card:active { cursor: grabbing; }
+      @media print {
+        .no-print { display: none !important; }
+        body { background: #fff; color: #111827; }
+        .glass, .soft { box-shadow: none; border-color: #ddd; background: #fff; color: #111827; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel" data-presets="env,react,typescript">
+      const { useEffect, useMemo, useRef, useState } = React;
+      const motionFactory = window.Motion?.motion || new Proxy({}, { get: (_, tag) => tag });
+      const AnimatePresence = window.Motion?.AnimatePresence || (({ children }) => children);
+
+      const modes = [
+        { id: "discovery", label: "Discovery", screens: ["Context", "Capabilities", "Invisible Work", "Relationships", "VSM"] },
+        { id: "scenario", label: "Scenario", screens: ["Risk Heat Map", "Workforce", "Preservation", "Knowledge", "What If"] },
+        { id: "executive", label: "Executive", screens: ["Dashboard", "Briefing", "Memory Vault"] }
+      ];
+
+      const capabilitySeed = [
+        ["National LD Convening", "teaching", 5, 2, 3, 5, 4, 24],
+        ["TEFA Network Stewardship", "external", 5, 2, 3, 5, 4, 30],
+        ["HEDx Partnership", "external", 4, 3, 4, 4, 3, 18],
+        ["Scholarship Translation", "research", 4, 2, 3, 3, 4, 18],
+        ["Teaching Focus Network Linkage", "teaching", 3, 3, 4, 3, 2, 12],
+        ["Gender Parity Leadership", "people", 5, 3, 4, 3, 4, 24],
+        ["Leadership Seminar Curation", "future", 4, 2, 3, 4, 3, 12],
+        ["Committee Governance Memory", "governance", 4, 3, 3, 2, 3, 12],
+        ["PNG Development Program Memory", "external", 4, 2, 3, 4, 4, 24],
+        ["Lead Through Learning Node", "research", 5, 3, 4, 4, 4, 24],
+        ["Mentorship and Writing Collaborations", "people", 4, 2, 4, 4, 3, 18],
+        ["Grad Cert Teaching Handover", "teaching", 3, 4, 5, 2, 2, 6],
+        ["Reporting Line Transition", "governance", 4, 3, 4, 2, 3, 6],
+        ["Institutional Relationship Memory", "stewardship", 5, 1, 2, 5, 5, 36]
+      ];
+
+      const starter = {
+        context: {
+          staff: "Professor Kelly Matthews",
+          role: "Professor and higher education leadership scholar",
+          faculty: "ITaLI / School of Education, UQ",
+          retirement: "2026-07-01",
+          service: 12
+        },
+        capabilities: capabilitySeed.map(([name, category, criticality, documentation, successor, relationship, difficulty, months], index) => ({
+          id: `cap-${index + 1}`, name, category, criticality, documentation, successor, relationship, difficulty, months,
+          x: 8 + (index % 4) * 22, y: 9 + Math.floor(index / 4) * 19,
+          vsm: index % 5 === 0 ? "System 4" : index % 7 === 0 ? "System 5" : "",
+          notes: ""
+        })),
+        invisible: [
+          { prompt: "What do people come to this person for?", response: "Sense-making across teaching leadership, scholarship translation, gender parity work and national sector relationships." },
+          { prompt: "What problems disappear because they quietly solve them?", response: "Transition ambiguity is converted into named owners, next steps and calm handover pathways." },
+          { prompt: "What knowledge exists only in their head?", response: "The informal history of TEFA, HEDx, CASAW, WE Network, PNG development work and UQ teaching leadership relationships." },
+          { prompt: "What relationships depend on personal trust?", response: "National teaching-focused academics, HEDx collaborators, senior UQ education leaders and writing collaborators." },
+          { prompt: "What initiatives would stall if they left tomorrow?", response: "Scholarship translation, Lead Through Learning reporting, national LD convening and several mentorship/writing threads." }
+        ],
+        relationships: [
+          { id: "r1", name: "Rachel Fitzgerald", type: "Internal leaders", tag: "Strategic", strength: 5, dependency: 3 },
+          { id: "r2", name: "Greg Winslett", type: "Internal leaders", tag: "Governance", strength: 5, dependency: 4 },
+          { id: "r3", name: "Suzanne Le Mire", type: "Internal leaders", tag: "Strategic", strength: 4, dependency: 3 },
+          { id: "r4", name: "Dom McGrath", type: "Internal leaders", tag: "Research", strength: 4, dependency: 3 },
+          { id: "r5", name: "Charlotte Young", type: "Research collaborators", tag: "Research", strength: 4, dependency: 3 },
+          { id: "r6", name: "Christine Slade", type: "Research collaborators", tag: "Research", strength: 4, dependency: 3 },
+          { id: "r7", name: "HEDx", type: "Professional bodies", tag: "Reputation", strength: 5, dependency: 4 },
+          { id: "r8", name: "National TEFA Network", type: "Professional bodies", tag: "Reputation", strength: 5, dependency: 5 },
+          { id: "r9", name: "University of Wollongong", type: "International institutions", tag: "Strategic", strength: 4, dependency: 3 },
+          { id: "r10", name: "HR Leadership Portfolio", type: "Internal leaders", tag: "Governance", strength: 4, dependency: 2 }
+        ],
+        workforce: [
+          { id: "w1", option: "A", title: "Distributed Academic Leadership Model", roles: ["Teaching Focus Lead", "Scholarship Translation Lead", "Research Node Lead"], retained: 84 },
+          { id: "w2", option: "B", title: "Internal Lead + External Honorary Collaboration", roles: ["Internal Transition Lead", "Honorary Professor", "Program Manager"], retained: 88 },
+          { id: "w3", option: "C", title: "Portfolio Owner Model", roles: ["TEFA Contact", "HEDx Liaison", "LtL Node Lead", "Gender Parity Sponsor"], retained: 82 },
+          { id: "w4", option: "D", title: "Professional Staff Enabled Network Model", roles: ["Academic Sponsor", "Executive Officer", "Partnerships Manager"], retained: 76 }
+        ],
+        capture: {
+          "cap-1": "Introductions",
+          "cap-2": "Narrative capture",
+          "cap-3": "Introductions",
+          "cap-4": "Mentoring",
+          "cap-8": "Documentation",
+          "cap-10": "Shadowing",
+          "cap-14": "Recorded interviews"
+        },
+        whatIf: { early: 0, recruitmentDelay: 6, successorRisk: 30, fundingCut: 10, restructure: false },
+        vault: [
+          { title: "Transition-out message and project owner list", type: "Document", capability: "Institutional Relationship Memory" },
+          { title: "TEFA to HEDx digital home history", type: "Narrative", capability: "TEFA Network Stewardship" },
+          { title: "Lead Through Learning UQ dashboard handover", type: "Document", capability: "Lead Through Learning Node" },
+          { title: "Scholarship translation final meeting notes", type: "Lesson learned", capability: "Scholarship Translation" },
+          { title: "CASAW and WE Network transition summary", type: "Narrative", capability: "Gender Parity Leadership" }
+        ]
+      };
+
+      const transferTypes = ["Documentation", "Introductions", "Recorded interviews", "Mentoring", "Narrative capture", "Shadowing"];
+      const roleBank = ["Professor", "Associate Professor", "Lecturer", "Research Fellow", "Program Manager", "Partnerships Manager", "Executive Officer", "External Chair"];
+      const relTypes = ["Internal leaders", "Research collaborators", "Government agencies", "Professional bodies", "Industry partners", "Alumni", "International institutions"];
+      const relTags = ["Strategic", "Funding", "Governance", "Research", "Reputation", "Supervision"];
+      const vsmZones = ["System 1", "System 2", "System 3", "System 4", "System 5"];
+      const prompts = [
+        "What do people come to this person for?",
+        "What initiatives would stall if they left tomorrow?",
+        "Which judgement calls are hard to teach but easy for them?",
+        "Where does their reputation substitute for formal process?",
+        "Which weak signals do they notice before anyone else?"
+      ];
+
+      function riskScore(cap) {
+        return Math.round(((cap.criticality * 1.4) + ((6 - cap.documentation) * 1.1) + ((6 - cap.successor) * 1.2) + (cap.relationship * 1.1) + cap.difficulty + Math.min(cap.months / 10, 6)) / 35 * 100);
+      }
+      function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+      function download(filename, content, type = "application/json") {
+        const blob = new Blob([content], { type });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+      function todayToRetirement(retirement) {
+        const now = new Date();
+        const end = retirement ? new Date(retirement) : new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
+        return Math.max(0, Math.ceil((end - now) / 86400000));
+      }
+      function readiness(data) {
+        const caps = data.capabilities;
+        const avgRisk = caps.reduce((sum, cap) => sum + riskScore(cap), 0) / caps.length;
+        const knowledge = caps.reduce((sum, cap) => sum + cap.documentation * 20, 0) / caps.length;
+        const successor = caps.reduce((sum, cap) => sum + cap.successor * 20, 0) / caps.length;
+        const relationship = 100 - data.relationships.reduce((sum, rel) => sum + rel.dependency * 7, 0) / Math.max(data.relationships.length, 1);
+        const recruitment = clamp(100 - data.whatIf.recruitmentDelay * 4 - data.whatIf.early * 6, 0, 100);
+        const capability = clamp(100 - avgRisk, 0, 100);
+        const index = Math.round((capability + knowledge + successor + relationship + recruitment) / 5);
+        return { index, capability, knowledge, successor, relationship, recruitment };
+      }
+
+      function App() {
+        const [data, setData] = useState(() => JSON.parse(localStorage.getItem("academic-succession-studio") || "null") || starter);
+        const [mode, setMode] = useState("discovery");
+        const [screen, setScreen] = useState(0);
+        const [selectedCap, setSelectedCap] = useState(data.capabilities[0]?.id);
+        const [customCap, setCustomCap] = useState("");
+        const [status, setStatus] = useState("Saved automatically on this browser");
+        const fileRef = useRef(null);
+        const activeMode = modes.find((m) => m.id === mode);
+        const screenName = activeMode.screens[screen] || activeMode.screens[0];
+        const scores = readiness(data);
+
+        useEffect(() => localStorage.setItem("academic-succession-studio", JSON.stringify(data)), [data]);
+        useEffect(() => setScreen(0), [mode]);
+
+        const update = (path, value) => setData((prev) => {
+          const next = structuredClone(prev);
+          let pointer = next;
+          path.slice(0, -1).forEach((key) => pointer = pointer[key]);
+          pointer[path[path.length - 1]] = value;
+          return next;
+        });
+        const updateCap = (id, patch) => setData((prev) => ({ ...prev, capabilities: prev.capabilities.map((cap) => cap.id === id ? { ...cap, ...patch } : cap) }));
+        const selected = data.capabilities.find((cap) => cap.id === selectedCap) || data.capabilities[0];
+        const highRisks = [...data.capabilities].sort((a, b) => riskScore(b) - riskScore(a)).slice(0, 4);
+
+        function addCapability() {
+          const name = customCap.trim();
+          if (!name) return;
+          const cap = { id: `cap-${Date.now()}`, name, category: "custom", criticality: 3, documentation: 2, successor: 2, relationship: 2, difficulty: 3, months: 18, x: 46, y: 44, vsm: "", notes: "" };
+          setData((prev) => ({ ...prev, capabilities: [...prev.capabilities, cap] }));
+          setSelectedCap(cap.id);
+          setCustomCap("");
+        }
+        function exportBrief(format) {
+          const body = buildBrief(data, scores, highRisks);
+          if (format === "json") {
+            download("academic-succession-session.json", JSON.stringify(data, null, 2));
+            setStatus("Session file saved. Share this file with Deanne to continue.");
+            return;
+          }
+          if (format === "word") {
+            download("academic-succession-brief.doc", body, "application/msword");
+            setStatus("Word briefing exported.");
+            return;
+          }
+          if (format === "ppt") {
+            download("academic-succession-brief.ppt", body, "application/vnd.ms-powerpoint");
+            setStatus("PowerPoint briefing exported.");
+            return;
+          }
+          const win = window.open("", "_blank");
+          win.document.write(body);
+          win.document.close();
+          win.print();
+          setStatus("Print dialog opened. Choose Save as PDF if needed.");
+        }
+        function importSession(event) {
+          const file = event.target.files?.[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const imported = JSON.parse(reader.result);
+              if (!imported.context || !Array.isArray(imported.capabilities)) throw new Error("Invalid session");
+              setData(imported);
+              setSelectedCap(imported.capabilities[0]?.id);
+              setStatus("Session loaded.");
+            } catch (error) {
+              setStatus("Could not load that file. Use a Studio session JSON file.");
+            }
+            event.target.value = "";
+          };
+          reader.readAsText(file);
+        }
+
+        return (
+          <div className="min-h-screen">
+            <header className="no-print sticky top-0 z-40 border-b border-white/10 bg-[#06111c]/75 backdrop-blur-xl">
+              <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-3 px-5 py-3">
+                <div className="min-w-0 flex-1 basis-full sm:basis-auto">
+                  <div className="text-[11px] uppercase tracking-[.32em] text-cyan-200/80">Transition Workshop Tool</div>
+                  <h1 className="text-lg font-semibold sm:text-xl">Academic Succession Studio</h1>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {modes.map((m) => <button className={`whitespace-nowrap rounded px-3 py-2 text-sm sm:px-4 ${mode === m.id ? "bg-cyan-300 text-slate-950" : "soft text-slate-200"}`} onClick={() => setMode(m.id)}>{m.label}</button>)}
+                </div>
+                <div className="ml-auto flex items-center gap-2">
+                  <span className="hidden max-w-72 truncate text-right text-xs text-slate-300 md:inline" aria-live="polite">{status}</span>
+                  <button className="soft whitespace-nowrap rounded px-3 py-2 text-sm" onClick={() => exportBrief("json")}>Save Session</button>
+                  <button className="soft whitespace-nowrap rounded px-3 py-2 text-sm" onClick={() => fileRef.current.click()}>Load Session</button>
+                  <input ref={fileRef} className="hidden" type="file" accept="application/json,.json" onChange={importSession} />
+                </div>
+              </div>
+            </header>
+
+            <main className="mx-auto grid max-w-[1500px] gap-5 px-5 py-5 lg:grid-cols-[280px_1fr]">
+              <aside className="no-print glass h-fit rounded-lg p-4">
+                <div className="mb-4 flex items-center justify-between">
+                  <span className="text-sm text-slate-300">{activeMode.label} Mode</span>
+                  <span className="rounded bg-white/10 px-2 py-1 text-xs">{screen + 1}/{activeMode.screens.length}</span>
+                </div>
+                <div className="space-y-2">
+                  {activeMode.screens.map((name, index) => (
+                    <button onClick={() => setScreen(index)} className={`flex w-full items-center gap-3 rounded-md px-3 py-3 text-left text-sm transition ${screen === index ? "bg-cyan-300 text-slate-950" : "hover:bg-white/10"}`}>
+                      <span className="grid h-7 w-7 place-items-center rounded-full border border-current text-xs">{index + 1}</span>
+                      <span>{name}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-5 rounded-md bg-slate-950/55 p-4">
+                  <div className="text-xs uppercase tracking-[.2em] text-slate-400">Readiness Index</div>
+                  <div className="mt-2 flex items-end gap-3">
+                    <div className="text-5xl font-semibold">{scores.index}</div>
+                    <div className="pb-2 text-sm text-slate-300">/100</div>
+                  </div>
+                  <div className="mt-3 h-2 rounded bg-white/10"><div className="h-2 rounded bg-cyan-300" style={{ width: `${scores.index}%` }} /></div>
+                </div>
+              </aside>
+
+              <section className="min-w-0">
+                <AnimatePresence mode="wait">
+                  <motionFactory.div key={`${mode}-${screenName}`} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: .28 }}>
+                    <StudioScreen screen={screenName} data={data} setData={setData} update={update} updateCap={updateCap} selected={selected} setSelectedCap={setSelectedCap} customCap={customCap} setCustomCap={setCustomCap} addCapability={addCapability} scores={scores} highRisks={highRisks} exportBrief={exportBrief} />
+                  </motionFactory.div>
+                </AnimatePresence>
+              </section>
+            </main>
+          </div>
+        );
+      }
+
+      function StudioScreen(props) {
+        const map = {
+          "Context": <Context {...props} />,
+          "Capabilities": <Capabilities {...props} />,
+          "Invisible Work": <InvisibleWork {...props} />,
+          "Relationships": <Relationships {...props} />,
+          "VSM": <VSM {...props} />,
+          "Risk Heat Map": <HeatMap {...props} />,
+          "Workforce": <Workforce {...props} />,
+          "Preservation": <Preservation {...props} />,
+          "Knowledge": <Knowledge {...props} />,
+          "What If": <WhatIf {...props} />,
+          "Dashboard": <Dashboard {...props} />,
+          "Briefing": <Briefing {...props} />,
+          "Memory Vault": <Vault {...props} />
+        };
+        return map[props.screen];
+      }
+
+      function Panel({ title, kicker, children, action }) {
+        return <div className="glass rounded-lg p-5">
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+            <div><div className="text-xs uppercase tracking-[.25em] text-cyan-200/80">{kicker}</div><h2 className="mt-1 text-2xl font-semibold">{title}</h2></div>
+            {action}
+          </div>
+          {children}
+        </div>;
+      }
+      function Field({ label, value, onChange, type = "text" }) {
+        return <label className="block"><span className="text-xs uppercase tracking-[.18em] text-slate-400">{label}</span><input type={type} value={value} onChange={(e) => onChange(e.target.value)} className="mt-2 w-full rounded-md border border-white/10 bg-white/10 px-3 py-3 outline-none focus:border-cyan-200" /></label>;
+      }
+      function Metric({ label, value, tone = "cyan" }) {
+        const color = tone === "gold" ? "bg-[#f3c766]" : tone === "coral" ? "bg-[#ff8f70]" : tone === "leaf" ? "bg-[#7bd88f]" : "bg-cyan-300";
+        return <div className="soft rounded-md p-4"><div className="text-sm text-slate-300">{label}</div><div className="mt-3 flex items-end gap-3"><div className="text-4xl font-semibold">{Math.round(value)}</div><span className="pb-1 text-sm text-slate-400">/100</span></div><div className="mt-3 h-2 rounded bg-white/10"><div className={`h-2 rounded ${color}`} style={{ width: `${clamp(value, 0, 100)}%` }} /></div></div>;
+      }
+      function Slider({ label, value, onChange, min = 1, max = 5 }) {
+        return <label className="block"><div className="mb-2 flex justify-between text-sm"><span>{label}</span><span className="text-cyan-200">{value}</span></div><input type="range" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full accent-cyan-300" /></label>;
+      }
+
+      function Context({ data, update }) {
+        const days = todayToRetirement(data.context.retirement);
+        const stages = ["Today", "Knowledge Capture", "Ownership", "Transition", "Departure"];
+        return <Panel title="Transition Context" kicker="Discovery 01">
+          <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
+            <div className="grid gap-4">
+              <Field label="Staff member" value={data.context.staff} onChange={(v) => update(["context", "staff"], v)} />
+              <Field label="Role" value={data.context.role} onChange={(v) => update(["context", "role"], v)} />
+              <Field label="Faculty / school" value={data.context.faculty} onChange={(v) => update(["context", "faculty"], v)} />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Retirement / transition date" type="date" value={data.context.retirement} onChange={(v) => update(["context", "retirement"], v)} />
+                <Field label="Years of service" type="number" value={data.context.service} onChange={(v) => update(["context", "service"], Number(v))} />
+              </div>
+            </div>
+            <div className="soft rounded-lg p-5">
+              <div className="mb-5 flex items-center justify-between"><span className="text-sm text-slate-300">Strategic transition horizon</span><strong>{days} days</strong></div>
+              <div className="relative mt-10 h-56">
+                <div className="absolute left-6 right-6 top-1/2 h-1 -translate-y-1/2 bg-white/15" />
+                {stages.map((stage, i) => <div className="absolute top-1/2 -translate-y-1/2 text-center" style={{ left: `${i * 25}%`, transform: "translate(-50%, -50%)" }}>
+                  <div className={`mx-auto grid h-16 w-16 place-items-center rounded-full border ${i === 4 ? "border-coral-300 bg-[#ff8f70]/20" : "border-cyan-200 bg-cyan-300/10"}`}>{i + 1}</div>
+                  <div className="mt-3 w-32 text-sm">{stage}</div>
+                </div>)}
+              </div>
+            </div>
+          </div>
+        </Panel>;
+      }
+
+      function Capabilities({ data, setData, updateCap, selected, setSelectedCap, customCap, setCustomCap, addCapability }) {
+        function dropOnCanvas(e) {
+          e.preventDefault();
+          const id = e.dataTransfer.getData("cap");
+          const rect = e.currentTarget.getBoundingClientRect();
+          updateCap(id, { x: clamp(((e.clientX - rect.left) / rect.width) * 100, 2, 86), y: clamp(((e.clientY - rect.top) / rect.height) * 100, 3, 88) });
+        }
+        return <Panel title="Capability Discovery Canvas" kicker="Discovery 02" action={<div className="flex gap-2"><input value={customCap} onChange={(e) => setCustomCap(e.target.value)} placeholder="Custom capability" className="rounded-md border border-white/10 bg-white/10 px-3 py-2 outline-none" /><button onClick={addCapability} className="rounded-md bg-cyan-300 px-3 py-2 text-slate-950">Add</button></div>}>
+          <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
+            <div onDragOver={(e) => e.preventDefault()} onDrop={dropOnCanvas} className="grid-bg relative min-h-[620px] overflow-hidden rounded-lg border border-white/10 bg-slate-950/35">
+              {data.capabilities.map((cap) => <div draggable onDragStart={(e) => e.dataTransfer.setData("cap", cap.id)} onClick={() => setSelectedCap(cap.id)} className={`cap-card absolute w-52 rounded-md border p-3 shadow-xl transition ${selected?.id === cap.id ? "border-cyan-200 bg-cyan-300/20" : "border-white/10 bg-slate-900/85 hover:bg-white/10"}`} style={{ left: `${cap.x}%`, top: `${cap.y}%` }}>
+                <div className="text-sm font-semibold">{cap.name}</div>
+                <div className="mt-2 flex justify-between text-xs text-slate-300"><span>{cap.category}</span><span>Risk {riskScore(cap)}</span></div>
+              </div>)}
+            </div>
+            <CapabilityInspector cap={selected} updateCap={updateCap} />
+          </div>
+        </Panel>;
+      }
+      function CapabilityInspector({ cap, updateCap }) {
+        if (!cap) return null;
+        return <div className="soft rounded-lg p-4">
+          <h3 className="text-lg font-semibold">{cap.name}</h3>
+          <div className="mt-4 space-y-4">
+            <Slider label="Criticality" value={cap.criticality} onChange={(v) => updateCap(cap.id, { criticality: v })} />
+            <Slider label="Documentation quality" value={cap.documentation} onChange={(v) => updateCap(cap.id, { documentation: v })} />
+            <Slider label="Successor readiness" value={cap.successor} onChange={(v) => updateCap(cap.id, { successor: v })} />
+            <Slider label="Relationship dependency" value={cap.relationship} onChange={(v) => updateCap(cap.id, { relationship: v })} />
+            <Slider label="Replacement difficulty" value={cap.difficulty} onChange={(v) => updateCap(cap.id, { difficulty: v })} />
+            <Slider label="Months to rebuild" min={0} max={60} value={cap.months} onChange={(v) => updateCap(cap.id, { months: v })} />
+          </div>
+          <textarea value={cap.notes} onChange={(e) => updateCap(cap.id, { notes: e.target.value })} placeholder="Facilitator notes" className="mt-4 min-h-28 w-full rounded-md border border-white/10 bg-white/10 p-3 outline-none" />
+        </div>;
+      }
+
+      function InvisibleWork({ data, setData }) {
+        const [draft, setDraft] = useState("");
+        const used = new Set(data.invisible.map((item) => item.prompt));
+        const nextPrompt = prompts.find((prompt) => !used.has(prompt)) || `Where does ${data.context.staff.split(" ")[0]}'s informal influence create value?`;
+        function add() {
+          if (!draft.trim()) return;
+          setData((prev) => ({ ...prev, invisible: [...prev.invisible, { prompt: nextPrompt, response: draft.trim() }] }));
+          setDraft("");
+        }
+        return <Panel title="Invisible Work Explorer" kicker="Discovery 03">
+          <div className="grid gap-5 lg:grid-cols-[420px_1fr]">
+            <div className="soft rounded-lg p-5">
+              <div className="text-sm uppercase tracking-[.2em] text-cyan-200">Prompt card</div>
+              <p className="mt-4 text-2xl leading-tight">{nextPrompt}</p>
+              <textarea value={draft} onChange={(e) => setDraft(e.target.value)} className="mt-5 min-h-40 w-full rounded-md border border-white/10 bg-white/10 p-3 outline-none" placeholder="Capture the group's answer" />
+              <button onClick={add} className="mt-3 rounded-md bg-cyan-300 px-4 py-2 text-slate-950">Capture insight</button>
+            </div>
+            <div className="grid gap-3">
+              {data.invisible.map((item, index) => <div className="soft rounded-md p-4"><div className="text-sm text-cyan-200">{item.prompt}</div><p className="mt-2 text-slate-100">{item.response}</p></div>)}
+            </div>
+          </div>
+        </Panel>;
+      }
+
+      function Relationships({ data, setData }) {
+        const [draft, setDraft] = useState({ name: "", type: relTypes[0], tag: relTags[0], strength: 3, dependency: 3 });
+        const risky = data.relationships.filter((r) => r.dependency >= 4);
+        function addRel() {
+          if (!draft.name.trim()) return;
+          setData((prev) => ({ ...prev, relationships: [...prev.relationships, { ...draft, id: `r-${Date.now()}` }] }));
+          setDraft({ ...draft, name: "" });
+        }
+        return <Panel title="Relationship Ecosystem Mapper" kicker="Discovery 04">
+          <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
+            <div className="relative min-h-[620px] overflow-hidden rounded-lg border border-white/10 bg-slate-950/35">
+              <div className="absolute left-1/2 top-1/2 grid h-36 w-36 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-cyan-200 bg-cyan-300/15 text-center text-sm font-semibold">{data.context.staff}</div>
+              {data.relationships.map((rel, i) => {
+                const angle = (i / data.relationships.length) * Math.PI * 2 - Math.PI / 2;
+                const x = 50 + Math.cos(angle) * 34;
+                const y = 50 + Math.sin(angle) * 36;
+                return <div>
+                  <div className="absolute h-px origin-left bg-white/20" style={{ left: "50%", top: "50%", width: "29%", transform: `rotate(${angle}rad)` }} />
+                  <div className={`absolute w-44 rounded-md border p-3 text-sm ${rel.dependency >= 4 ? "border-[#ff8f70] bg-[#ff8f70]/15" : "border-white/10 bg-slate-900/85"}`} style={{ left: `${x}%`, top: `${y}%`, transform: "translate(-50%, -50%)" }}>
+                    <strong>{rel.name}</strong><div className="mt-1 text-xs text-slate-300">{rel.type} · {rel.tag}</div>
+                  </div>
+                </div>;
+              })}
+            </div>
+            <div className="space-y-4">
+              <div className="soft rounded-lg p-4">
+                <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Relationship name" className="w-full rounded-md border border-white/10 bg-white/10 px-3 py-2 outline-none" />
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value })} className="rounded-md bg-slate-900 px-3 py-2">{relTypes.map((t) => <option>{t}</option>)}</select>
+                  <select value={draft.tag} onChange={(e) => setDraft({ ...draft, tag: e.target.value })} className="rounded-md bg-slate-900 px-3 py-2">{relTags.map((t) => <option>{t}</option>)}</select>
+                </div>
+                <div className="mt-4 space-y-3"><Slider label="Strength" value={draft.strength} onChange={(v) => setDraft({ ...draft, strength: v })} /><Slider label="Personal dependency" value={draft.dependency} onChange={(v) => setDraft({ ...draft, dependency: v })} /></div>
+                <button onClick={addRel} className="mt-3 rounded-md bg-cyan-300 px-4 py-2 text-slate-950">Add node</button>
+              </div>
+              <div className="rounded-md border border-[#ff8f70]/40 bg-[#ff8f70]/10 p-4"><strong>Single point of relationship failure</strong><div className="mt-2 text-sm text-slate-200">{risky.length ? risky.map((r) => r.name).join(", ") : "No critical dependency nodes yet."}</div></div>
+            </div>
+          </div>
+        </Panel>;
+      }
+
+      function VSM({ data, updateCap }) {
+        return <Panel title="Viable System Model Mapping" kicker="Discovery 05">
+          <div className="grid gap-4 lg:grid-cols-5">
+            {vsmZones.map((zone, index) => <div onDragOver={(e) => e.preventDefault()} onDrop={(e) => updateCap(e.dataTransfer.getData("cap"), { vsm: zone })} className={`min-h-96 rounded-lg border p-3 ${index >= 3 ? "border-[#f3c766]/45 bg-[#f3c766]/10" : "border-white/10 bg-white/5"}`}>
+              <div className="font-semibold">{zone}</div>
+              <div className="mt-1 text-xs text-slate-300">{["Delivery", "Coordination", "Governance", "External intelligence", "Identity and stewardship"][index]}</div>
+              <div className="mt-4 space-y-2">
+                {data.capabilities.filter((cap) => cap.vsm === zone).map((cap) => <div draggable onDragStart={(e) => e.dataTransfer.setData("cap", cap.id)} className="cap-card rounded-md bg-slate-950/65 p-3 text-sm">{cap.name}<div className="mt-1 text-xs text-slate-400">Risk {riskScore(cap)}</div></div>)}
+              </div>
+            </div>)}
+          </div>
+          <div className="mt-4 rounded-md bg-[#f3c766]/10 p-4 text-sm">Over-reliance signal: Systems 4 and 5 hold {data.capabilities.filter((c) => c.vsm === "System 4" || c.vsm === "System 5").length} mapped capabilities. These are harder to replace because they encode judgement, identity, reputation and future sensing.</div>
+        </Panel>;
+      }
+
+      function HeatMap({ data, updateCap }) {
+        return <Panel title="Capability Risk Heat Map" kicker="Scenario 06">
+          <div className="overflow-auto rounded-lg border border-white/10">
+            <table className="w-full min-w-[900px] border-collapse text-sm">
+              <thead className="bg-white/10 text-left text-xs uppercase tracking-[.16em] text-slate-300"><tr>{["Capability", "Criticality", "Documentation", "Successor", "Relationship", "Difficulty", "Months", "Risk"].map((h) => <th className="p-3">{h}</th>)}</tr></thead>
+              <tbody>{data.capabilities.map((cap) => <tr className="border-t border-white/10">
+                <td className="p-3 font-semibold">{cap.name}</td>
+                {["criticality", "documentation", "successor", "relationship", "difficulty"].map((key) => <td className="p-3"><input type="range" min="1" max="5" value={cap[key]} onChange={(e) => updateCap(cap.id, { [key]: Number(e.target.value) })} className="w-24 accent-cyan-300" /><span className="ml-2">{cap[key]}</span></td>)}
+                <td className="p-3"><input type="range" min="0" max="60" value={cap.months} onChange={(e) => updateCap(cap.id, { months: Number(e.target.value) })} className="w-24 accent-cyan-300" /> <span>{cap.months}</span></td>
+                <td className="p-3"><span className={`rounded px-3 py-1 ${riskScore(cap) > 75 ? "bg-[#ff8f70] text-slate-950" : riskScore(cap) > 55 ? "bg-[#f3c766] text-slate-950" : "bg-[#7bd88f] text-slate-950"}`}>{riskScore(cap)}</span></td>
+              </tr>)}</tbody>
+            </table>
+          </div>
+        </Panel>;
+      }
+
+      function Workforce({ data, setData }) {
+        function addRole(optionId, role) {
+          setData((prev) => ({ ...prev, workforce: prev.workforce.map((w) => w.id === optionId ? { ...w, roles: [...w.roles, role], retained: clamp(w.retained + 3, 0, 100) } : w) }));
+        }
+        return <Panel title="Workforce Design Studio" kicker="Scenario 07">
+          <div className="mb-4 flex flex-wrap gap-2">{roleBank.map((role) => <button draggable onDragStart={(e) => e.dataTransfer.setData("role", role)} className="soft rounded px-3 py-2 text-sm">{role}</button>)}</div>
+          <div className="grid gap-4 xl:grid-cols-4">
+            {data.workforce.map((option) => <div onDragOver={(e) => e.preventDefault()} onDrop={(e) => addRole(option.id, e.dataTransfer.getData("role"))} className="soft min-h-96 rounded-lg p-4">
+              <div className="flex items-center justify-between"><strong>Option {option.option}</strong><span className="text-cyan-200">{option.retained}%</span></div>
+              <h3 className="mt-2 text-xl font-semibold">{option.title}</h3>
+              <div className="mt-5 space-y-3">{option.roles.map((role) => <div className="rounded-md border border-white/10 bg-slate-950/60 p-3">{role}</div>)}</div>
+            </div>)}
+          </div>
+        </Panel>;
+      }
+
+      function Preservation({ data }) {
+        return <Panel title="Capability Preservation Simulator" kicker="Scenario 08">
+          <div className="grid gap-4 xl:grid-cols-4">
+            {data.workforce.map((option) => <div className="soft rounded-lg p-4">
+              <div className="mb-4 flex items-center justify-between"><strong>Option {option.option}</strong><span>{option.retained}/100</span></div>
+              <div className="relative mx-auto h-56 w-56 rounded-full border border-white/10" style={{ background: `conic-gradient(#62d6d6 0 ${option.retained * 3.6}deg, rgba(255,255,255,.1) ${option.retained * 3.6}deg)` }}>
+                <div className="absolute inset-8 grid place-items-center rounded-full bg-slate-950 text-center"><div className="text-4xl font-semibold">{option.retained}</div><div className="text-xs text-slate-400">Preservation</div></div>
+              </div>
+              <div className="mt-5 space-y-2 text-sm">
+                <div className="flex justify-between"><span>Retained</span><span>{Math.round(option.retained * .65)}%</span></div>
+                <div className="flex justify-between"><span>Weakened</span><span>{Math.round((100 - option.retained) * .55)}%</span></div>
+                <div className="flex justify-between"><span>Lost</span><span>{Math.round((100 - option.retained) * .45)}%</span></div>
+              </div>
+            </div>)}
+          </div>
+        </Panel>;
+      }
+
+      function Knowledge({ data, setData }) {
+        const capture = data.capture || {};
+        return <Panel title="Knowledge Capture Planner" kicker="Scenario 09">
+          <div className="grid gap-3 xl:grid-cols-2">
+            {data.capabilities.map((cap) => <div className="soft rounded-md p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3"><strong>{cap.name}</strong><span className="text-sm text-slate-300">{cap.category}</span></div>
+              <select value={capture[cap.id] || ""} onChange={(e) => setData((prev) => ({ ...prev, capture: { ...prev.capture, [cap.id]: e.target.value } }))} className="mt-3 w-full rounded-md bg-slate-900 px-3 py-2">
+                <option value="">Select transfer mechanism</option>{transferTypes.map((type) => <option>{type}</option>)}
+              </select>
+            </div>)}
+          </div>
+        </Panel>;
+      }
+
+      function WhatIf({ data, update, scores }) {
+        return <Panel title="What If Theatre" kicker="Scenario Advanced">
+          <div className="grid gap-5 lg:grid-cols-[420px_1fr]">
+            <div className="soft rounded-lg p-5 space-y-5">
+              <Slider label="Transition occurs months early" min={0} max={24} value={data.whatIf.early} onChange={(v) => update(["whatIf", "early"], v)} />
+              <Slider label="Recruitment delayed by months" min={0} max={24} value={data.whatIf.recruitmentDelay} onChange={(v) => update(["whatIf", "recruitmentDelay"], v)} />
+              <Slider label="Successor departure risk" min={0} max={100} value={data.whatIf.successorRisk} onChange={(v) => update(["whatIf", "successorRisk"], v)} />
+              <Slider label="Funding reduction" min={0} max={50} value={data.whatIf.fundingCut} onChange={(v) => update(["whatIf", "fundingCut"], v)} />
+              <label className="flex items-center gap-3"><input type="checkbox" checked={data.whatIf.restructure} onChange={(e) => update(["whatIf", "restructure"], e.target.checked)} className="h-5 w-5 accent-cyan-300" /> Organisational restructure active</label>
+            </div>
+            <div className="grid content-start gap-4 sm:grid-cols-2">
+              <Metric label="Transition Readiness Index" value={scores.index - data.whatIf.successorRisk * .08 - data.whatIf.fundingCut * .2 - (data.whatIf.restructure ? 7 : 0)} tone="gold" />
+              <Metric label="Recruitment Readiness" value={scores.recruitment} />
+              <Metric label="Relationship Fragility" value={100 - scores.relationship} tone="coral" />
+              <Metric label="Knowledge Resilience" value={scores.knowledge} tone="leaf" />
+            </div>
+          </div>
+        </Panel>;
+      }
+
+      function Dashboard({ scores, highRisks }) {
+        return <Panel title="Transition Readiness Dashboard" kicker="Executive 10">
+          <div className="grid gap-4 lg:grid-cols-5">
+            <Metric label="Capability Readiness" value={scores.capability} />
+            <Metric label="Knowledge Readiness" value={scores.knowledge} tone="leaf" />
+            <Metric label="Successor Readiness" value={scores.successor} tone="gold" />
+            <Metric label="Relationship Readiness" value={scores.relationship} />
+            <Metric label="Recruitment Readiness" value={scores.recruitment} tone="coral" />
+          </div>
+          <div className="mt-5 grid gap-5 lg:grid-cols-[360px_1fr]">
+            <div className="soft rounded-lg p-5 text-center"><div className="text-sm uppercase tracking-[.2em] text-slate-400">Transition Readiness Index</div><div className="mt-3 text-8xl font-semibold">{scores.index}</div><div className="mx-auto mt-4 h-3 max-w-sm rounded bg-white/10"><div className="h-3 rounded bg-cyan-300" style={{ width: `${scores.index}%` }} /></div></div>
+            <div className="soft rounded-lg p-5"><h3 className="text-lg font-semibold">Highest continuity risks</h3><div className="mt-4 space-y-3">{highRisks.map((cap) => <div><div className="flex justify-between text-sm"><span>{cap.name}</span><span>{riskScore(cap)}</span></div><div className="mt-1 h-2 rounded bg-white/10"><div className="h-2 rounded bg-[#ff8f70]" style={{ width: `${riskScore(cap)}%` }} /></div></div>)}</div></div>
+          </div>
+        </Panel>;
+      }
+      function Briefing({ data, scores, highRisks, exportBrief }) {
+        return <Panel title="Executive Briefing Generator" kicker="Executive 11" action={<div className="flex flex-wrap gap-2"><button onClick={() => exportBrief("pdf")} className="soft rounded px-3 py-2 text-sm">Print / PDF</button><button onClick={() => exportBrief("word")} className="soft rounded px-3 py-2 text-sm">Word</button><button onClick={() => exportBrief("ppt")} className="soft rounded px-3 py-2 text-sm">PowerPoint</button></div>}>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <BriefBlock title="Executive Summary" text={`${data.context.staff}'s retirement presents a strategic continuity challenge across research leadership, external influence and institutional memory. Current readiness is ${scores.index}/100.`} />
+            <BriefBlock title="Key Risks" text={highRisks.map((cap) => `${cap.name} (${riskScore(cap)})`).join("; ")} />
+            <BriefBlock title="Workforce Recommendation" text={`${data.workforce.sort((a, b) => b.retained - a.retained)[0].title} currently preserves the strongest capability portfolio.`} />
+            <BriefBlock title="12 Month Action Plan" text="Map single-person relationships, schedule narrative capture, appoint transition leads, confirm recruitment pathway and run monthly continuity simulations." />
+          </div>
+        </Panel>;
+      }
+      function BriefBlock({ title, text }) { return <div className="soft rounded-md p-5"><h3 className="font-semibold">{title}</h3><p className="mt-2 text-slate-200">{text}</p></div>; }
+      function Vault({ data, setData }) {
+        const [draft, setDraft] = useState({ title: "", type: "Interview", capability: data.capabilities[0]?.name || "" });
+        return <Panel title="Organisational Memory Vault" kicker="Executive Advanced">
+          <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
+            <div className="soft rounded-lg p-4">
+              <input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Knowledge asset title" className="w-full rounded-md border border-white/10 bg-white/10 px-3 py-2 outline-none" />
+              <select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value })} className="mt-3 w-full rounded-md bg-slate-900 px-3 py-2">{["Interview", "Document", "Narrative", "Lesson learned", "Stakeholder map"].map((t) => <option>{t}</option>)}</select>
+              <select value={draft.capability} onChange={(e) => setDraft({ ...draft, capability: e.target.value })} className="mt-3 w-full rounded-md bg-slate-900 px-3 py-2">{data.capabilities.map((c) => <option>{c.name}</option>)}</select>
+              <button onClick={() => { if (draft.title.trim()) setData((prev) => ({ ...prev, vault: [...prev.vault, draft] })); setDraft({ ...draft, title: "" }); }} className="mt-3 rounded-md bg-cyan-300 px-4 py-2 text-slate-950">Link asset</button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">{data.vault.map((asset) => <div className="soft rounded-md p-4"><div className="text-sm text-cyan-200">{asset.type}</div><h3 className="mt-2 font-semibold">{asset.title}</h3><div className="mt-3 text-sm text-slate-300">Linked to {asset.capability}</div></div>)}</div>
+          </div>
+        </Panel>;
+      }
+
+      function buildBrief(data, scores, highRisks) {
+        const topWorkforce = [...data.workforce].sort((a, b) => b.retained - a.retained)[0];
+        return `<!doctype html><html><head><meta charset="utf-8"><title>Academic Succession Brief</title><style>body{font-family:Arial,sans-serif;color:#111827;line-height:1.5;padding:40px}h1{font-size:34px}h2{margin-top:28px;border-bottom:1px solid #ddd;padding-bottom:8px}.metric{display:inline-block;margin:8px 12px 8px 0;padding:14px 18px;border:1px solid #ddd}.risk{margin:6px 0}</style></head><body>
+          <h1>Academic Succession Brief: ${data.context.staff}</h1>
+          <p><strong>Role:</strong> ${data.context.role}<br><strong>Faculty/School:</strong> ${data.context.faculty}<br><strong>Retirement / transition date:</strong> ${data.context.retirement}</p>
+          <h2>Executive Summary</h2><p>The transition presents a strategic continuity challenge across capability, knowledge, relationships and workforce design. Current readiness index is <strong>${scores.index}/100</strong>.</p>
+          <h2>Readiness Gauges</h2>
+          <div class="metric">Capability ${Math.round(scores.capability)}/100</div><div class="metric">Knowledge ${Math.round(scores.knowledge)}/100</div><div class="metric">Successor ${Math.round(scores.successor)}/100</div><div class="metric">Relationship ${Math.round(scores.relationship)}/100</div><div class="metric">Recruitment ${Math.round(scores.recruitment)}/100</div>
+          <h2>Key Risks</h2>${highRisks.map((cap) => `<div class="risk"><strong>${cap.name}</strong>: continuity risk ${riskScore(cap)}/100</div>`).join("")}
+          <h2>Workforce Recommendation</h2><p>${topWorkforce.title} is the current preferred option with a capability preservation score of ${topWorkforce.retained}/100. Roles: ${topWorkforce.roles.join(", ")}.</p>
+          <h2>Knowledge Capture Actions</h2><ul>${data.capabilities.map((cap) => `<li>${cap.name}: ${data.capture[cap.id] || "Select transfer mechanism"}</li>`).join("")}</ul>
+          <h2>12 Month Action Plan</h2><ol><li>Confirm capability risks and VSM concentration with executive sponsor.</li><li>Begin relationship introductions for all high-dependency nodes.</li><li>Run narrative capture sessions for institutional memory and judgement capabilities.</li><li>Approve preferred workforce option and recruitment pathway.</li><li>Review readiness index monthly until transition is complete.</li></ol>
+        </body></html>`;
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    </script>
+  </body>
+</html>
