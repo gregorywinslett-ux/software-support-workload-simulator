@@ -1,0 +1,34 @@
+{
+  "session_title": "ITaLI Pulse Action Sprint",
+  "duration_minutes": 45,
+  "facilitator_notes": "Synthetic prototype session. Replace with live meeting notes as needed.",
+  "candidate_actions": [
+    {
+      "action_id": "A001",
+      "action_title": "Fortnightly workload pulse check",
+      "action_description": "Run a short team-level rhythm to notice rising pressure, name trade-offs, and identify items needing escalation.",
+      "linked_theme": "workload_visibility",
+      "source_response_ids": ["R001"],
+      "facilitator_rationale": "Creates an early-warning routine before workload becomes a crisis.",
+      "decision_status": "undecided"
+    },
+    {
+      "action_id": "A002",
+      "action_title": "Cross-team request intake template",
+      "action_description": "Use one lightweight template for cross-team requests with urgency, owner, decision needed, and trade-off implications.",
+      "linked_theme": "cross_team_requests",
+      "source_response_ids": ["R002"],
+      "facilitator_rationale": "Makes work easier to compare and prioritise across teams.",
+      "decision_status": "undecided"
+    },
+    {
+      "action_id": "A003",
+      "action_title": "Workload escalation pathway",
+      "action_description": "Publish a visible pathway showing how workload concerns move from discussion to decision, escalation, and review.",
+      "linked_theme": "escalation",
+      "source_response_ids": ["R004", "R005"],
+      "facilitator_rationale": "Builds confidence that concerns will be addressed consistently.",
+      "decision_status": "undecided"
+    }
+  ]
+}
