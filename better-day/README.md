@@ -21,6 +21,19 @@ http://localhost:8501
 
 The app is self-contained. It does not use a database, authentication, login, external services, or AI APIs.
 
+## Public Deployment
+
+For a public URL, deploy the app through Streamlit Community Cloud from GitHub.
+
+Deployment settings:
+
+- Repository: `gregorywinslett-ux/software-support-workload-simulator`
+- Branch: `better-day-public-deploy`
+- Main file path: `better-day/app.py`
+- Requirements file: `better-day/requirements.txt`
+
+See [PUBLIC_DEPLOYMENT.md](PUBLIC_DEPLOYMENT.md) for step-by-step instructions.
+
 ## What To Share With Colleagues
 
 Suggested framing:
@@ -51,6 +64,7 @@ Suggested pilot activity:
 - `requirements.txt` - minimal Python dependencies.
 - `FEEDBACK_PROMPTS.md` - prompts for colleagues reviewing the prototype.
 - `TESTING.md` - manual test checklist.
+- `PUBLIC_DEPLOYMENT.md` - Streamlit Community Cloud deployment steps.
 
 ## Sceptical-user test
 
